@@ -32,34 +32,30 @@ void CVSA_layout::setup(void) {
 
     // create the graphic elements
     this->cross_   = new neurodraw::Cross(0.3f, 0.05f);
-    this->arrow_   = new neurodraw::Arrow(0.3f, 0.2f, true, neurodraw::Palette::darkviolet);
+    this->circle_  = new neurodraw::Circle(0.15f, true, neurodraw::Palette::dimgray);
+    this->square_   = new neurodraw::Rectangle(0.2f, 0.2f, true, neurodraw::Palette::white);
     for(int i = 0; i < this->nclasses_; i++) {
-        this->circles_.push_back(new neurodraw::Circle(0.15f, true, neurodraw::Palette::white));
-    }
-
-    // set the position of the elements
-    this->arrow_->rotate(90.0f);
-    this->circles_.at(0)->move(-0.85f, -0.75f);
-    this->circles_.at(1)->move(0.85f, -0.75f);
-    if (this->nclasses_ == 3) {
-        this->circles_.at(2)->move(0.0f, 0.85f);
+        neurodraw::Color color = CuePalette.at(i);
+        neurodraw::Ring* ring = new neurodraw::Ring(0.15f,  0.03f, color);
+        ring->move(CuePosition.at(i).at(0), CuePosition.at(i).at(1));
+        this->rings_.push_back(ring);
     }
 
     // add the elements to the engine
     this->engine_->add(this->cross_);
-    this->engine_->add(this->arrow_);
+    this->engine_->add(this->square_);
+    this->engine_->add(this->circle_);
     for(int i = 0; i < this->nclasses_; i++) {
-        this->engine_->add(this->circles_.at(i));
+        this->engine_->add(this->rings_.at(i));
     }
 
-    this->arrow_->hide();
+    this->circle_->hide();
+    this->square_->hide();
     this->cross_->hide();
 }
 
 void CVSA_layout::reset(void) { 
-    for(int i = 0; i < this->nclasses_; i++) {
-        this->circles_.at(i)->set_color(neurodraw::Palette::lightgrey);
-    }
+    this->circle_->hide();
 }
 
 void CVSA_layout::show_fixation(void) {
@@ -68,53 +64,53 @@ void CVSA_layout::show_fixation(void) {
 
 void CVSA_layout::show_cue(Direction dir) {
 
-    float angle = 0.0;
+    neurodraw::Color color = neurodraw::Palette::dimgray;
 
     switch(dir) {
         case Direction::Leftbottom:
-            angle = CueAngle.at(0);
+            color = CuePalette.at(0);
             break;
         case Direction::Rightbottom:
-            angle = CueAngle.at(1);
+            color = CuePalette.at(1);
             break;
         case Direction::Up:
-            angle = CueAngle.at(2);
+            color = CuePalette.at(2);
             break;
         case Direction::None:
-            angle = CueAngle.at(3);
+            color = CuePalette.at(3);
             break;
         default:
             ROS_WARN("Unknown direction required. Cue angle is not set");
             break;
     }
 
-    this->arrow_->rotate(angle);
-    this->arrow_->show();
+    this->square_->set_color(color);
+    this->square_->show();
 }
 
 void CVSA_layout::show_boom(Direction dir) { // must show the circle in the bottom left or right
-    
-    neurodraw::Color color = neurodraw::Palette::firebrick;
 
     switch(dir) {
         case Direction::Leftbottom:
-            this->circles_.at(0)->set_color(color);
+            this->circle_->move(CuePosition.at(0).at(0), CuePosition.at(0).at(1));
+            this->circle_->set_color(CuePalette.at(0));
             break;
         case Direction::Rightbottom:
-            this->circles_.at(1)->set_color(color);
+            this->circle_->move(CuePosition.at(1).at(0), CuePosition.at(1).at(1));
+            this->circle_->set_color(CuePalette.at(1));
             break;
         case Direction::Up:
-            this->circles_.at(2)->set_color(color);
+            this->circle_->move(CuePosition.at(2).at(0), CuePosition.at(2).at(1));
+            this->circle_->set_color(CuePalette.at(2));
             break;
         default:
             break;
     }
+    this->circle_->show();
 }
 
 void CVSA_layout::hide_boom(void) {
-    for(int i = 0; i < this->nclasses_; i++) {
-        this->circles_.at(i)->set_color(neurodraw::Palette::lightgrey);
-    }
+    this->circle_->hide();
 }
 
 void CVSA_layout::hide_fixation(void) {
@@ -122,7 +118,7 @@ void CVSA_layout::hide_fixation(void) {
 }
 
 void CVSA_layout::hide_cue(void) {
-    this->arrow_->hide();
+    this->square_->hide();
 }
 
 void CVSA_layout::on_keyboard_event(const neurodraw::KeyboardEvent& event) {

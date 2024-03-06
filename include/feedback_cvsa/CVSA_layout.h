@@ -10,20 +10,28 @@
 #include "feedback_cvsa/CVSAConfig.h"
 
 #include <neurodraw/Engine.h>
-#include <neurodraw/Arrow.h>
+#include <neurodraw/Palette.h>
+#include <neurodraw/Rectangle.h>
 #include <neurodraw/Cross.h>
 #include <neurodraw/Circle.h>
+#include <neurodraw/Ring.h>
 #include <neurodraw/EventKey.h>
 
 namespace feedback {
 
-const std::array<float, 4> CueAngle { 
-        45.0, 
-        135.0, 
-        -90.0,
-        0.0
-};
+const std::array<std::array<float, 2>, 4> CuePosition {{
+        {{-1.0f,  -0.75f}}, 
+        {{ 1.0f,  -0.75f}}, 
+        {{ 0.0f,   0.85f}},
+        {{ 0.0f,   0.0f}}
+}};
 
+const std::array<neurodraw::Color, 4> CuePalette { 
+		neurodraw::Palette::royalblue, 
+		neurodraw::Palette::firebrick, 
+		neurodraw::Palette::orange,
+		neurodraw::Palette::darkgray
+};
 
 using config_cvsa          = feedback_cvsa::CVSAConfig;
 using dyncfg_cvsa          = dynamic_reconfigure::Server<config_cvsa>;
@@ -61,10 +69,11 @@ class CVSA_layout {
 
     protected:
         // Graphic elements
-        neurodraw::Engine*         engine_;
-        neurodraw::Cross*         cross_;
-        std::vector<neurodraw::Circle*>    circles_; // depending on the number of classes, lb, rb, up
-        neurodraw::Arrow*        arrow_;
+        neurodraw::Engine*                 engine_;
+        neurodraw::Cross*                  cross_;
+        std::vector<neurodraw::Ring*>      rings_; // depending on the number of classes, lb, rb, up
+        neurodraw::Rectangle*              square_;
+        neurodraw::Circle*                 circle_; // to show the hit
 
         // Default configuration
         int nclasses_;
