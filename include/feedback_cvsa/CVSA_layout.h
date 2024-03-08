@@ -19,18 +19,12 @@
 
 namespace feedback {
 
-const std::array<std::array<float, 2>, 4> CuePosition {{
-        {{-1.0f,  -0.75f}}, 
-        {{ 1.0f,  -0.75f}}, 
-        {{ 0.0f,   0.85f}},
-        {{ 0.0f,   0.0f}}
-}};
-
-const std::array<neurodraw::Color, 4> CuePalette { 
+const std::array<neurodraw::Color, 5> CuePalette { 
 		neurodraw::Palette::royalblue, 
 		neurodraw::Palette::firebrick, 
 		neurodraw::Palette::orange,
-		neurodraw::Palette::darkgray
+		neurodraw::Palette::darkgray,
+        neurodraw::Palette::yellow // for timeout
 };
 
 using config_cvsa          = feedback_cvsa::CVSAConfig;
@@ -38,9 +32,6 @@ using dyncfg_cvsa          = dynamic_reconfigure::Server<config_cvsa>;
 
 
 class CVSA_layout {
-    
-    public:
-        enum class Direction {Leftbottom = 0, Rightbottom, Up, Timeout, None};
 
     public:
         CVSA_layout(const std::string& wintitle = "cvsa");
@@ -48,12 +39,14 @@ class CVSA_layout {
 
         void setup(void);
         void reset(void);
-        bool set_threshold(float input, Direction dir);
+        bool set_threshold(float input, int index);
         bool set_angle_range(float angle);
+        bool set_nclasses(int nclasses);
+        bool set_circle_positions(Eigen::MatrixXf circlePositions);
 
         void show_fixation(void);
-        void show_cue(Direction dir);
-        void show_boom(Direction dir);
+        void show_cue(int index);
+        void show_boom(int idx_position, int idx_color);
         void hide_fixation(void);
         void hide_cue(void);
         void hide_boom(void);
@@ -76,9 +69,10 @@ class CVSA_layout {
         neurodraw::Circle*                 circle_; // to show the hit
 
         // Default configuration
-        int nclasses_;
-        bool user_quit_;
-        Eigen::VectorXf thresholds_;
+        int              nclasses_;
+        bool             user_quit_;
+        Eigen::VectorXf  thresholds_;
+        Eigen::MatrixXf  circlePositions_;
 
         dyncfg_cvsa recfg_srv_;
         dyncfg_cvsa::CallbackType recfg_callback_type_;

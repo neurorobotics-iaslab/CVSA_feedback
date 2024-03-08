@@ -37,7 +37,7 @@ void CVSA_layout::setup(void) {
     for(int i = 0; i < this->nclasses_; i++) {
         neurodraw::Color color = CuePalette.at(i);
         neurodraw::Ring* ring = new neurodraw::Ring(0.15f,  0.03f, color);
-        ring->move(CuePosition.at(i).at(0), CuePosition.at(i).at(1));
+        ring->move(this->circlePositions_(i,0), this->circlePositions_(i,1));
         this->rings_.push_back(ring);
     }
 
@@ -62,50 +62,33 @@ void CVSA_layout::show_fixation(void) {
     this->cross_->show();
 }
 
-void CVSA_layout::show_cue(Direction dir) {
+void CVSA_layout::show_cue(int index) {
 
-    neurodraw::Color color = neurodraw::Palette::dimgray;
+    neurodraw::Color color = CuePalette.at(CuePalette.size()-1);
 
-    switch(dir) {
-        case Direction::Leftbottom:
-            color = CuePalette.at(0);
-            break;
-        case Direction::Rightbottom:
-            color = CuePalette.at(1);
-            break;
-        case Direction::Up:
-            color = CuePalette.at(2);
-            break;
-        case Direction::None:
-            color = CuePalette.at(3);
-            break;
-        default:
-            ROS_WARN("Unknown direction required. Cue angle is not set");
-            break;
+    if(index != -1){
+        color = CuePalette.at(index);
+    }else{
+        ROS_WARN("Unknown direction required. Cue color is not set");
     }
 
     this->square_->set_color(color);
     this->square_->show();
 }
 
-void CVSA_layout::show_boom(Direction dir) { // must show the circle in the bottom left or right
+void CVSA_layout::show_boom(int idx_position, int idx_color) { 
 
-    switch(dir) {
-        case Direction::Leftbottom:
-            this->circle_->move(CuePosition.at(0).at(0), CuePosition.at(0).at(1));
-            this->circle_->set_color(CuePalette.at(0));
-            break;
-        case Direction::Rightbottom:
-            this->circle_->move(CuePosition.at(1).at(0), CuePosition.at(1).at(1));
-            this->circle_->set_color(CuePalette.at(1));
-            break;
-        case Direction::Up:
-            this->circle_->move(CuePosition.at(2).at(0), CuePosition.at(2).at(1));
-            this->circle_->set_color(CuePalette.at(2));
-            break;
-        default:
-            break;
+    if(idx_position == idx_color){
+        this->circle_->move(this->circlePositions_(idx_position,0), this->circlePositions_(idx_position,1));
+        this->circle_->set_color(CuePalette.at(idx_color));
+    }else if(idx_color == CuePalette.size()-1){
+        this->circle_->move(this->circlePositions_(idx_position,0), this->circlePositions_(idx_position,1));
+        this->circle_->set_color(CuePalette.at(idx_color));
+
+    }else{
+        ROS_WARN("Unknown circle required. Boom color is not set");
     }
+    
     this->circle_->show();
 }
 
@@ -131,68 +114,71 @@ void CVSA_layout::on_keyboard_event(const neurodraw::KeyboardEvent& event) {
                this->engine_->quit();
              this->user_quit_ = true;
                 break;
-        case neurodraw::EventKey::a:
-            this->show_boom(Direction::Leftbottom);
-                break;
-        case neurodraw::EventKey::d:
-            this->show_boom(Direction::Rightbottom);
-                break;
-        case neurodraw::EventKey::s:
-            this->hide_boom();
-                break;
-        case neurodraw::EventKey::q:
-            this->show_cue(Direction::Leftbottom);
-                break;
-        case neurodraw::EventKey::w:
-            this->show_cue(Direction::Up);
-                break;
-        case neurodraw::EventKey::e:
-            this->show_cue(Direction::Rightbottom);
-                break;
-        case neurodraw::EventKey::r:
-            this->hide_cue();
-                break;
-        case neurodraw::EventKey::f:
-            this->show_fixation();
-                break;
-        case neurodraw::EventKey::g:
-            this->hide_fixation();
-                break;
+        default:
+            break;
     }
 }
 
-bool CVSA_layout::set_threshold(float input, Direction dir) {
+bool CVSA_layout::set_nclasses(int nclasses){
+    this->nclasses_ = nclasses;
+    return true;
+}
+bool CVSA_layout::set_circle_positions(Eigen::MatrixXf circlePositions){
+    this->circlePositions_ = circlePositions;
+    return true;
+}
 
-    switch(dir) {
-        case Direction::Leftbottom:
-            this->thresholds_[0] = input;
-            ROS_WARN("Threshold for Direction::Leftbottom changed to: %f", input);
-            break;
-        case Direction::Rightbottom:
-            this->thresholds_[1] = input;
-            ROS_WARN("Threshold for Direction::Rightbottom changed to: %f", input);
-            break;
-        case Direction::Up:
-            this->thresholds_[2] = input;
-            ROS_WARN("Threshold for Direction::Up changed to: %f", input);
-            break;
-        default:
-            ROS_ERROR("The provided Direction is unknown. Threshold is not set");
-            break;
+bool CVSA_layout::set_threshold(float input, int index) {
+
+    if(index != -1){
+        this->thresholds_[index] = input;
+        ROS_WARN("Threshold for index %d changed to: %f", index, input);
+    }else{
+        return false;
     }
     
     return true;
 }
 
 void CVSA_layout::on_request_reconfigure(config_cvsa &config, uint32_t level) {
-    if(std::fabs(config.leftbottom_threshold - this->thresholds_[0]) > 0.00001) {
-        this->set_threshold(config.leftbottom_threshold, Direction::Leftbottom);
-    }
-    if(std::fabs(config.rightbottom_threshold - this->thresholds_[1]) > 0.00001) {
-        this->set_threshold(config.rightbottom_threshold, Direction::Rightbottom);
-    }
-    if(std::fabs(config.up_threshold - this->thresholds_[2]) > 0.00001) {
-        this->set_threshold(config.leftbottom_threshold, Direction::Up);
+
+    switch (this->nclasses_)
+    {
+    case 2:
+        if(std::fabs(config.threshold_1 - this->thresholds_[1]) > 0.00001) {
+            this->set_threshold(config.threshold_1, 1);
+        }
+        if(std::fabs(config.threshold_2 - this->thresholds_[2]) > 0.00001) {
+            this->set_threshold(config.threshold_2, 2);
+        }
+        break;
+    case 3:
+        if(std::fabs(config.threshold_1 - this->thresholds_[1]) > 0.00001) {
+            this->set_threshold(config.threshold_1, 1);
+        }
+        if(std::fabs(config.threshold_2 - this->thresholds_[2]) > 0.00001) {
+            this->set_threshold(config.threshold_2, 2);
+        }
+        if(std::fabs(config.threshold_3 - this->thresholds_[3]) > 0.00001) {
+            this->set_threshold(config.threshold_3, 3);
+        }
+        break;
+    case 4:
+        if(std::fabs(config.threshold_1 - this->thresholds_[1]) > 0.00001) {
+            this->set_threshold(config.threshold_1, 1);
+        }
+        if(std::fabs(config.threshold_2 - this->thresholds_[2]) > 0.00001) {
+            this->set_threshold(config.threshold_2, 2);
+        }
+        if(std::fabs(config.threshold_3 - this->thresholds_[3]) > 0.00001) {
+            this->set_threshold(config.threshold_3, 3);
+        }
+        if(std::fabs(config.threshold_4 - this->thresholds_[4]) > 0.00001) {
+            this->set_threshold(config.threshold_4, 4);
+        }
+        break;
+    default:
+        break;
     }
 }
 

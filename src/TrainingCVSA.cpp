@@ -22,11 +22,22 @@ bool TrainingCVSA::configure(void) {
     if(this->p_nh_.getParam("classes", this->classes_) == false) {
         ROS_ERROR("Parameter 'classes' is mandatory");
         return false;
-    } else if(this->classes_.size() != 2 && this->classes_.size() != 3) {
-        ROS_ERROR("The provided number of classes must be 2 o 3, now it is: %ld", this->classes_.size());
+    } 
+    this->set_nclasses(this->classes_.size());
+
+    // Getting layout positions
+    std::string layout;
+    if(this->p_nh_.getParam("circlePositions", layout) == true) {
+        this->set_circle_positions(this->str2matrix(layout));
+        if (this->circlePositions_.rows() != this->nclasses_ || this->circlePositions_.cols() != 2){
+            ROS_ERROR("The provided layout is not correct. It must be a matrix with %d rows and 2 columns", this->nclasses_);
+            return false;
+        } 
+    }else{
+        ROS_ERROR("Parameter 'circlePositions' is mandatory");
         return false;
     }
-    this->nclasses_ = this->classes_.size();
+    // set up the windows layout
 	this->setup();
 
     // Getting thresholds
@@ -65,39 +76,32 @@ bool TrainingCVSA::configure(void) {
     // Getting duration parameters
     ros::param::param("~duration/begin",            this->duration_.begin,             5000);
     ros::param::param("~duration/start",            this->duration_.start,             1000);
-    ros::param::param("~duration/fixation",        this->duration_.fixation,         2000);
-    ros::param::param("~duration/cue",                this->duration_.cue,             1000);
-    ros::param::param("~duration/feedback_min",    this->duration_.feedback_min,    4000);
-    ros::param::param("~duration/feedback_max",    this->duration_.feedback_max,    5500);
-    ros::param::param("~duration/boom",            this->duration_.boom,             1000);
-    ros::param::param("~duration/timeout",            this->duration_.timeout,        10000);
-    ros::param::param("~duration/timeout_on_rest", this->duration_.timeout_on_rest, 6000);
-    ros::param::param("~duration/iti",                this->duration_.iti,                 100);
-    ros::param::param("~duration/end",                this->duration_.end,               2000);
+    ros::param::param("~duration/fixation",         this->duration_.fixation,          2000);
+    ros::param::param("~duration/cue",              this->duration_.cue,               1000);
+    ros::param::param("~duration/feedback_min",     this->duration_.feedback_min,      4000);
+    ros::param::param("~duration/feedback_max",     this->duration_.feedback_max,      5500);
+    ros::param::param("~duration/boom",             this->duration_.boom,              1000);
+    ros::param::param("~duration/timeout",          this->duration_.timeout,          10000);
+    ros::param::param("~duration/iti",              this->duration_.iti,                100);
+    ros::param::param("~duration/end",              this->duration_.end,               2000);
 
 
     // Setting parameters
     if(this->modality_ == Modality::Calibration) {
         mindur_active = this->duration_.feedback_min;
         maxdur_active = this->duration_.feedback_max;
-        mindur_rest   = this->duration_.feedback_min;
-        maxdur_rest   = this->duration_.feedback_max;
     } else {
         mindur_active = this->duration_.timeout;
         maxdur_active = this->duration_.timeout;
-        mindur_rest   = this->duration_.timeout_on_rest;
-        maxdur_rest   = this->duration_.timeout_on_rest;
     }
 
-    this->trialsequence_.addclass(this->classes_.at(0), this->trials_per_class_.at(0), mindur_active, maxdur_active);
-    this->trialsequence_.addclass(this->classes_.at(1), this->trials_per_class_.at(1), mindur_active, maxdur_active);
-    if(this->classes_.size() == 3) 
-        this->trialsequence_.addclass(this->classes_.at(2), this->trials_per_class_.at(2), mindur_rest, maxdur_rest);
+    for(int i = 0; i < this->nclasses_; i++) {
+        this->trialsequence_.addclass(this->classes_.at(i), this->trials_per_class_.at(i), mindur_active, maxdur_active);
+    }
 
-    this->set_threshold(thresholds.at(0), Direction::Leftbottom);
-    this->set_threshold(thresholds.at(1), Direction::Rightbottom);
-    if(this->nclasses_ == 3)
-        this->set_threshold(thresholds.at(2), Direction::Up);
+    for(int i = 0; i < this->nclasses_; i++) {
+        this->set_threshold(thresholds.at(i), i);
+    }
     
     ROS_INFO("Total number of classes: %ld", this->classes_.size());
     ROS_INFO("Total number of trials:  %d", this->trialsequence_.size());
@@ -107,15 +111,14 @@ bool TrainingCVSA::configure(void) {
 
 }
 
-TrainingCVSA::Direction TrainingCVSA::class2direction(int eventcue) {
-    Direction dir = Direction::None;
+int TrainingCVSA::class2direction(int eventcue) {
 
     auto it = find(this->classes_.begin(), this->classes_.end(), eventcue);
     
     if(it != this->classes_.end())
-        dir = static_cast<Direction>(it - this->classes_.begin());
+        return int(it - this->classes_.begin());
 
-    return dir;
+    return -1;
 }
 
 int TrainingCVSA::class2index(int eventcue) {
@@ -132,22 +135,36 @@ int TrainingCVSA::class2index(int eventcue) {
     return idx;
 }
 
-float TrainingCVSA::direction2threshold(Direction dir) {
+float TrainingCVSA::direction2threshold(int index) {
 
-
-	if(dir == Direction::Leftbottom) {
-		return this->thresholds_[0];
-	} else if(dir == Direction::Rightbottom) {
-		return this->thresholds_[1];
-	} else if(dir == Direction::Up) {
-		return this->thresholds_[2];
+	if(index != -1) {
+		return this->thresholds_[index];
 	} else {
 		ROS_ERROR("Unknown direction");
-		return 0.0;
+		return -1;
 	}
 }
 
-// TODO: Modify it to use with three classes
+Eigen::MatrixXf TrainingCVSA::str2matrix(const std::string& str) {
+    Eigen::MatrixXf matrix;
+    std::istringstream iss(str);
+    std::string row_str;
+    while (std::getline(iss, row_str, ';')) {
+        std::istringstream row_ss(row_str);
+        float value;
+        Eigen::VectorXf row_vector;
+        while (row_ss >> value) {
+            row_vector.conservativeResize(row_vector.size() + 1);
+            row_vector(row_vector.size() - 1) = value;
+        }
+        matrix.conservativeResize(matrix.rows() + 1, row_vector.size());
+        matrix.row(matrix.rows() - 1) = row_vector.transpose();
+    }
+
+    return matrix;
+}
+
+// TODO: Modify it to use with three/four classes
 void TrainingCVSA::on_received_data(const rosneuro_msgs::NeuroOutput& msg) {
 
     int refclass = this->classes_.at(0);
@@ -196,8 +213,8 @@ void TrainingCVSA::run(void) {
     int       hitclass;
     int       boomevent;
     int       idx_class;
-    Direction trialdirection;
-    Direction targethit;
+    int       trialdirection;
+    int       targethit;
     ros::Rate r(this->rate_);
 
     LinearPilot linearpilot(1000.0f/this->rate_);
@@ -218,7 +235,7 @@ void TrainingCVSA::run(void) {
         idx_class      = this->class2index(trialclass); 
         trialdirection = this->class2direction(trialclass);
         trialthreshold = this->direction2threshold(trialdirection);
-        targethit      = Direction::None;
+        targethit      = -1;
 
         if(this->modality_ == Modality::Calibration) {
             //autopilot = trialdirection == Direction::Up ? (Autopilot*)(&sinepilot) : (Autopilot*)(&linearpilot);
@@ -246,6 +263,7 @@ void TrainingCVSA::run(void) {
         this->setevent(trialclass);
         this->show_cue(trialdirection);
         this->sleep(this->duration_.cue);
+        this->hide_cue();
         this->setevent(trialclass + Events::Off);
         
         if(ros::ok() == false || this->user_quit_ == true) break;
@@ -259,13 +277,10 @@ void TrainingCVSA::run(void) {
         // Send reset event
         this->setevent(Events::CFeedback);
         this->has_new_input_ = false;
-		if(this->nclasses_ == 3){
-			this->current_input_ = {0.5f, 0.5f, 0.5f};
-		}else{
-			this->current_input_ = {0.5f, 0.5f};
-		}
+
+        this->current_input_ = std::vector<float>(this->nclasses_, 0.5f);
         
-        while(ros::ok() && this->user_quit_ == false && targethit == Direction::None) {
+        while(ros::ok() && this->user_quit_ == false && targethit == -1) {
 
             if(this->modality_ == Modality::Calibration) {
                 this->current_input_[idx_class] = this->current_input_[idx_class] + autopilot->step();
@@ -275,10 +290,10 @@ void TrainingCVSA::run(void) {
                 }
             }
             
-            targethit = this->is_target_hit(this->current_input_, trialdirection, 
+            targethit = this->is_target_hit(this->current_input_,  
                                             this->timer_.toc(), trialduration);
 
-            if(targethit != Direction::None)
+            if(targethit != -1)
                 break;
         
             r.sleep();
@@ -291,7 +306,7 @@ void TrainingCVSA::run(void) {
         // Boom
         boomevent = trialdirection == targethit ? Events::Hit : Events::Miss;
         this->setevent(boomevent);
-        this->show_boom(targethit);
+        this->show_boom(trialdirection, targethit);
         this->sleep(this->duration_.boom);
         this->hide_boom();
         this->setevent(boomevent + Events::Off);
@@ -336,19 +351,18 @@ void TrainingCVSA::sleep(int msecs) {
     std::this_thread::sleep_for(std::chrono::milliseconds(msecs));
 }
 
-TrainingCVSA::Direction TrainingCVSA::is_target_hit(std::vector<float> input, Direction direction, int elapsed, int duration) {
+int TrainingCVSA::is_target_hit(std::vector<float> input, int elapsed, int duration) {
 
-    Direction target = Direction::None;
+    int target = -1;
 
-    if(input.at(0) >= this->thresholds_[0]) {
-        target = Direction::Leftbottom;
-    } else if(input.at(1) >= this->thresholds_[1]) {
-        target = Direction::Rightbottom;
-    } else if(this->nclasses_ == 3 && input.at(2) >= this->thresholds_[2]){
-        target = Direction::Up;
-    } else if(elapsed >= duration) {
-        target = Direction::Timeout;
-        ROS_INFO("Timeout");
+    for(int i = 0; i < this->nclasses_; i++) {
+        if(elapsed >= duration) {
+            target = CuePalette.size()-1;
+            ROS_INFO("Timeout");
+        }else if(input.at(i) >= this->thresholds_[i]) {
+            target = i;
+            break;
+        }
     }
     
     return target;

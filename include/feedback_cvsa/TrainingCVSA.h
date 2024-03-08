@@ -55,11 +55,14 @@ class TrainingCVSA : public CVSA_layout {
     protected:
         void setevent(int event);
         void sleep(int msecs);
-        Direction class2direction(int eventcue);
-		float direction2threshold(Direction dir);
+        int class2direction(int eventcue);
+		float direction2threshold(int index);
         int class2index(int eventcue);
-        Direction is_target_hit(std::vector<float> input, Direction direction, int elapsed, int duration);
+        int is_target_hit(std::vector<float> input, int elapsed, int duration);
         void on_received_data(const rosneuro_msgs::NeuroOutput& msg);
+
+    private:
+        Eigen::MatrixXf str2matrix(const std::string& str);
 
     private:
         ros::NodeHandle nh_;
