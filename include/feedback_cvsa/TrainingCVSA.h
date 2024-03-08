@@ -13,8 +13,6 @@
 #include "feedback_cvsa/CVSA_layout.h"
 #include <rosneuro_feedback_wheel/TrialSequence.h>
 #include <rosneuro_feedback_wheel/Autopilot.h>
-//#include "feedback_cvsa/TrialSequence.h"
-//#include "feedback_cvsa/Autopilot.h"
 
 
 namespace feedback {
