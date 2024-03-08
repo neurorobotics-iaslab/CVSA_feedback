@@ -10,6 +10,7 @@ find_package(catkin REQUIRED COMPONENTS
              dynamic_reconfigure
              rosneuro_msgs
              Eigen3
+             rosneuro_feedback_wheel
              )
 
 find_library(NEURODRAW_LIBRARIES neurodraw REQUIRED)
@@ -31,6 +32,7 @@ catkin_package(
     roscpp
     std_msgs
     rosneuro_msgs
+    rosneuro_feedback_wheel
   DEPENDS
 )
 
@@ -51,8 +53,8 @@ add_library(${PROJECT_NAME}
             src/CVSA_layout.cpp
             src/TrainingCVSA.cpp
             #src/ControlWheel.cpp
-            src/TrialSequence.cpp
-            src/Autopilot.cpp
+            #src/TrialSequence.cpp
+            #src/Autopilot.cpp
             )
 
 target_link_libraries(${PROJECT_NAME} 

@@ -6,9 +6,9 @@
 		<arg name="thresholds"       default='[0.9, 0.9, 0.9]'/>
 		<arg name="classes"          default='[771, 773, 783]'/>
 		<arg name="trials"           default='[10, 10, 10]'/>
-		<arg name="circlePositions"  default="-1.3 -0.75; 1.3 -0.75; 0.0 0.55"/>
-		<!--arg name="circlePositions"  default="-1.0 -0.75; 1.0 -0.75"/-->
-		<!--arg name="circlePositions"  default="-1.0 -0.75; 1.0 -0.75; -1.0 0.85; 1.0 0.85"/-->
+		<arg name="circlePositions"  default="-1.3 -0.75; 1.3 -0.75; 0.0 0.65"/>
+		<!--arg name="circlePositions"  default="-1.3 -0.75; 1.3 -0.75"/-->
+		<!--arg name="circlePositions"  default="-1.3 -0.75; 1.3 -0.75; -1.3 0.85; 1.3 0.85"/-->
 			
 	<!-- acquisition arguments -->
 		<arg name="plugin" default='rosneuro::EGDDevice'/>

@@ -11,8 +11,10 @@
 #include <neurochrono/Timer.h>
 
 #include "feedback_cvsa/CVSA_layout.h"
-#include "feedback_cvsa/TrialSequence.h"
-#include "feedback_cvsa/Autopilot.h"
+#include <rosneuro_feedback_wheel/TrialSequence.h>
+#include <rosneuro_feedback_wheel/Autopilot.h>
+//#include "feedback_cvsa/TrialSequence.h"
+//#include "feedback_cvsa/Autopilot.h"
 
 
 namespace feedback {
@@ -73,7 +75,7 @@ class TrainingCVSA : public CVSA_layout {
         rosneuro_msgs::NeuroEvent  event_msg_;
         rosneuro_msgs::NeuroOutput inputmsg_;
 
-        TrialSequence trialsequence_;
+        rosneuro::feedback::TrialSequence trialsequence_;
 
         std::vector<int> classes_;
         std::vector<int> trials_per_class_;

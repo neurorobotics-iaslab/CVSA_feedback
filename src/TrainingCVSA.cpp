@@ -167,8 +167,7 @@ Eigen::MatrixXf TrainingCVSA::str2matrix(const std::string& str) {
 // TODO: Modify it to use with three/four classes
 void TrainingCVSA::on_received_data(const rosneuro_msgs::NeuroOutput& msg) {
 
-    int refclass = this->classes_.at(0);
-    int refclassIdx;
+    // check if the incoming message has the provided classes
     bool class_not_found = false;
     std::vector<int> msgclasses = msg.decoder.classes;
 
@@ -181,25 +180,15 @@ void TrainingCVSA::on_received_data(const rosneuro_msgs::NeuroOutput& msg) {
         }
     }
 
-    // Second: find the index of the refclass
     if(class_not_found == true) {
         this->has_new_input_ = false;
         ROS_WARN_THROTTLE(5.0f, "The incoming neurooutput message does not have the provided classes");
         return;
     }
 
-    auto it = std::find(msgclasses.begin(), msgclasses.end(), refclass);
-
-    if(it != msgclasses.end()) {
-        refclassIdx = it - msgclasses.begin();
-
-        this->current_input_ = msg.softpredict.data;
-        //this->current_angle_ = this->input2angle(msg.softpredict.data.at(refclassIdx)); // nothing to increase in CVSA
-        this->has_new_input_ = true;
-    } else {
-        this->has_new_input_ = true;
-        ROS_WARN_THROTTLE(5.0f, "Cannot find class %d in the incoming message", refclass);
-    }
+    // Set the new incoming data
+    this->current_input_ = msg.softpredict.data;
+    this->has_new_input_ = true;
         
 }
 
@@ -217,9 +206,8 @@ void TrainingCVSA::run(void) {
     int       targethit;
     ros::Rate r(this->rate_);
 
-    LinearPilot linearpilot(1000.0f/this->rate_);
-    SinePilot   sinepilot(1000.0f/this->rate_, 0.25f, 0.5f);
-    Autopilot*  autopilot;
+    rosneuro::feedback::LinearPilot linearpilot(1000.0f/this->rate_);
+    rosneuro::feedback::Autopilot*  autopilot;
 
     ROS_INFO("Protocol started");
     
