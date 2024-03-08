@@ -164,14 +164,13 @@ Eigen::MatrixXf TrainingCVSA::str2matrix(const std::string& str) {
     return matrix;
 }
 
-// TODO: Modify it to use with three/four classes
 void TrainingCVSA::on_received_data(const rosneuro_msgs::NeuroOutput& msg) {
 
-    // check if the incoming message has the provided classes
+    // Check if the incoming message has the provided classes
     bool class_not_found = false;
     std::vector<int> msgclasses = msg.decoder.classes;
 
-    // First: check that the incoming classes are the ones provided
+    // Check that the incoming classes are the ones provided
     for(auto it = msgclasses.begin(); it != msgclasses.end(); ++it) {
         auto it2 = std::find(this->classes_.begin(), this->classes_.end(), *it);
         if(it2 == this->classes_.end()) {
@@ -226,7 +225,6 @@ void TrainingCVSA::run(void) {
         targethit      = -1;
 
         if(this->modality_ == Modality::Calibration) {
-            //autopilot = trialdirection == Direction::Up ? (Autopilot*)(&sinepilot) : (Autopilot*)(&linearpilot);
             autopilot = &linearpilot;
             autopilot->set(0.5f, trialthreshold, trialduration); 
         }
