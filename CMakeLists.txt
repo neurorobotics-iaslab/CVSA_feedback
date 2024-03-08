@@ -52,9 +52,7 @@ add_definitions(${EIGEN3_DEFINITIONS})
 add_library(${PROJECT_NAME}    
             src/CVSA_layout.cpp
             src/TrainingCVSA.cpp
-            #src/ControlWheel.cpp
-            #src/TrialSequence.cpp
-            #src/Autopilot.cpp
+            src/ControlCVSA.cpp
             )
 
 target_link_libraries(${PROJECT_NAME} 
@@ -77,8 +75,9 @@ target_link_libraries(trainingCVSA_node  ${PROJECT_NAME}
                                     ${NEURODRAW_LIBRARIES}
                                     ${NEUROCHRONO_LIBRARIES}
 									                  ${Eigen3_LIBRARIES})
-#add_executable(controlwheel src/controlwheel.cpp)
-#target_link_libraries(controlwheel ${PROJECT_NAME}
-#                                 ${catkin_LIBRARIES}
-#                                   ${NEURODRAW_LIBRARIES}
-#                                   ${NEUROCHRONO_LIBRARIES})
+add_executable(controlCVSA_node src/controlCVSA_node.cpp)
+target_link_libraries(controlCVSA_node ${PROJECT_NAME}
+                                   ${catkin_LIBRARIES}
+                                   ${NEURODRAW_LIBRARIES}
+                                   ${NEUROCHRONO_LIBRARIES}
+                                   ${Eigen3_LIBRARIES})

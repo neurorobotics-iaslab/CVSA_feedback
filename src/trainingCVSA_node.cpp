@@ -7,16 +7,16 @@ int main(int argc, char** argv) {
     // ros initialization
     ros::init(argc, argv, "trainingCVSA_node");
 
-    feedback::TrainingCVSA arrow;
+    feedback::TrainingCVSA cvsa;
 
-    if(arrow.configure() == false) {
+    if(cvsa.configure() == false) {
         ROS_ERROR("TrainingCVSA configuration failed");
         ros::shutdown();
         return 0;
     }
 
 
-    arrow.run();
+    cvsa.run();
 
     ros::shutdown();
 

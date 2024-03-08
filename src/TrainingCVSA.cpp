@@ -45,7 +45,7 @@ bool TrainingCVSA::configure(void) {
         ROS_ERROR("Parameter 'thresholds' is mandatory");
         return false;
     } else if(thresholds.size() != this->nclasses_) {
-        ROS_ERROR("Thresholds must be the same of the number of classes");
+        ROS_ERROR("Thresholds must be the same of the number of classes %d", this->nclasses_);
         return false;
     }
 
@@ -232,7 +232,7 @@ void TrainingCVSA::run(void) {
         ROS_INFO("Trial %d/%d (class: %d | duration: %d ms)", trialnumber, this->trialsequence_.size(), trialclass, trialduration);
         this->setevent(Events::Start);
         this->sleep(this->duration_.start);
-        this->setevent(Events::Start + Events::Off);
+        //this->setevent(Events::Start + Events::Off);
 
         if(ros::ok() == false || this->user_quit_ == true) break;
         
@@ -297,7 +297,8 @@ void TrainingCVSA::run(void) {
         this->hide_boom();
         this->setevent(boomevent + Events::Off);
 
-        //this->setevent(Events::Start + Events::Off);
+        // Finish the trial
+        this->setevent(Events::Start + Events::Off);
 
         switch(boomevent) {
             case Events::Hit:
