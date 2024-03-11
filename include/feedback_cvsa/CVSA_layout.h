@@ -45,9 +45,11 @@ class CVSA_layout {
         bool set_circle_positions(Eigen::MatrixXf circlePositions);
 
         void show_fixation(void);
+        void show_center(void);
         void show_cue(int index);
         void show_boom(int idx_position, int idx_color);
         void hide_fixation(void);
+        void hide_center(void);
         void hide_cue(void);
         void hide_boom(void);
         
@@ -67,6 +69,7 @@ class CVSA_layout {
         std::vector<neurodraw::Ring*>      rings_; // depending on the number of classes, lb, rb, up
         neurodraw::Rectangle*              square_;
         neurodraw::Circle*                 circle_; // to show the hit
+        neurodraw::Circle*                 center_; // to show the center point to look
 
         // Default configuration
         int              nclasses_;

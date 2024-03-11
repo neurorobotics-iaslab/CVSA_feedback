@@ -75,6 +75,7 @@ void ControlCVSA::run(void) {
 
 		ros::spinOnce();
 		this->setevent(Events::CFeedback);
+		this->show_center();
 		this->has_new_input_ = false;
 		this->current_input_ = std::vector<float>(this->nclasses_, 0.5f);
 		targethit = -1;
@@ -95,6 +96,7 @@ void ControlCVSA::run(void) {
 			r.sleep();
 		}
 		
+		this->hide_center();
 		this->setevent(Events::CFeedback + Events::Off);
 		if(ros::ok() == false || this->user_quit_ == true) break;
 

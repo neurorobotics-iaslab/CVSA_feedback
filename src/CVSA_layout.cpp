@@ -32,6 +32,7 @@ void CVSA_layout::setup(void) {
 
     // create the graphic elements
     this->cross_   = new neurodraw::Cross(0.3f, 0.05f);
+    this->center_  = new neurodraw::Circle(0.03f, true, neurodraw::Palette::white);
     this->circle_  = new neurodraw::Circle(0.15f, true, neurodraw::Palette::dimgray);
     this->square_   = new neurodraw::Rectangle(0.2f, 0.2f, true, neurodraw::Palette::white);
     for(int i = 0; i < this->nclasses_; i++) {
@@ -42,6 +43,7 @@ void CVSA_layout::setup(void) {
     }
 
     // add the elements to the engine
+    this->engine_->add(this->center_);
     this->engine_->add(this->cross_);
     this->engine_->add(this->square_);
     this->engine_->add(this->circle_);
@@ -52,10 +54,15 @@ void CVSA_layout::setup(void) {
     this->circle_->hide();
     this->square_->hide();
     this->cross_->hide();
+    this->center_->hide();
 }
 
 void CVSA_layout::reset(void) { 
     this->circle_->hide();
+}
+
+void CVSA_layout::show_center(void) {
+    this->center_->show();
 }
 
 void CVSA_layout::show_fixation(void) {
@@ -94,6 +101,10 @@ void CVSA_layout::show_boom(int idx_position, int idx_color) {
 
 void CVSA_layout::hide_boom(void) {
     this->circle_->hide();
+}
+
+void CVSA_layout::hide_center(void) {
+    this->center_->hide();
 }
 
 void CVSA_layout::hide_fixation(void) {
