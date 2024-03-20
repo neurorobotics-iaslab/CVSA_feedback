@@ -3,8 +3,6 @@
 
 #include <ros/ros.h>
 
-#include <eigen3/Eigen/Dense>
-
 #include <dynamic_reconfigure/server.h>
 
 #include "feedback_cvsa/CVSAConfig.h"
@@ -42,7 +40,7 @@ class CVSA_layout {
         bool set_threshold(float input, int index);
         bool set_angle_range(float angle);
         bool set_nclasses(int nclasses);
-        bool set_circle_positions(Eigen::MatrixXf circlePositions);
+        bool set_circle_positions(std::vector<std::vector<float>> circlePositions);
 
         void show_fixation(void);
         void show_center(void);
@@ -74,8 +72,8 @@ class CVSA_layout {
         // Default configuration
         int              nclasses_;
         bool             user_quit_;
-        Eigen::VectorXf  thresholds_;
-        Eigen::MatrixXf  circlePositions_;
+        std::vector<float> thresholds_;
+        std::vector<std::vector<float>> circlePositions_;
 
         dyncfg_cvsa recfg_srv_;
         dyncfg_cvsa::CallbackType recfg_callback_type_;

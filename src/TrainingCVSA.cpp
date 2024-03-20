@@ -29,7 +29,7 @@ bool TrainingCVSA::configure(void) {
     std::string layout;
     if(this->p_nh_.getParam("circlePositions", layout) == true) {
         this->set_circle_positions(this->str2matrix(layout));
-        if (this->circlePositions_.rows() != this->nclasses_ || this->circlePositions_.cols() != 2){
+        if (this->circlePositions_.size() != this->nclasses_ || this->circlePositions_.at(0).size() != 2){
             ROS_ERROR("The provided layout is not correct. It must be a matrix with %d rows and 2 columns", this->nclasses_);
             return false;
         } 
@@ -145,20 +145,18 @@ float TrainingCVSA::direction2threshold(int index) {
 	}
 }
 
-Eigen::MatrixXf TrainingCVSA::str2matrix(const std::string& str) {
-    Eigen::MatrixXf matrix;
+std::vector<std::vector<float>> TrainingCVSA::str2matrix(const std::string& str) {
+    std::vector<std::vector<float>> matrix;
     std::istringstream iss(str);
     std::string row_str;
     while (std::getline(iss, row_str, ';')) {
         std::istringstream row_ss(row_str);
         float value;
-        Eigen::VectorXf row_vector;
+        std::vector<float> row_vector;
         while (row_ss >> value) {
-            row_vector.conservativeResize(row_vector.size() + 1);
-            row_vector(row_vector.size() - 1) = value;
+            row_vector.push_back(value);
         }
-        matrix.conservativeResize(matrix.rows() + 1, row_vector.size());
-        matrix.row(matrix.rows() - 1) = row_vector.transpose();
+        matrix.push_back(row_vector);
     }
 
     return matrix;

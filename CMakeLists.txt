@@ -9,7 +9,6 @@ find_package(catkin REQUIRED COMPONENTS
              std_msgs
              dynamic_reconfigure
              rosneuro_msgs
-             Eigen3
              rosneuro_feedback_wheel
              )
 
@@ -45,9 +44,7 @@ include_directories(include
                     ${catkin_INCLUDE_DIRS}
                     ${NEURODRAW_INCLUDE_DIRS}
                     ${NEUROCHRONO_INCLUDE_DIRS}
-                    ${EIGEN3_INCLUDE_DIRS})
-
-add_definitions(${EIGEN3_DEFINITIONS})
+                    )
 
 add_library(${PROJECT_NAME}    
             src/CVSA_layout.cpp
@@ -59,7 +56,7 @@ target_link_libraries(${PROJECT_NAME}
                       ${catkin_LIBRARIES}
                       ${NEURODRAW_LIBRARIES}
                       ${NEUROCHRONO_LIBRARIES}
-                      ${Eigen3_LIBRARIES})
+                      )
 
 add_dependencies(${PROJECT_NAME} 
                  ${catkin_EXPORTED_TARGETS}
@@ -74,10 +71,10 @@ target_link_libraries(trainingCVSA_node  ${PROJECT_NAME}
                                     ${catkin_LIBRARIES}
                                     ${NEURODRAW_LIBRARIES}
                                     ${NEUROCHRONO_LIBRARIES}
-									                  ${Eigen3_LIBRARIES})
+                                    )
 add_executable(controlCVSA_node src/controlCVSA_node.cpp)
 target_link_libraries(controlCVSA_node ${PROJECT_NAME}
                                    ${catkin_LIBRARIES}
                                    ${NEURODRAW_LIBRARIES}
                                    ${NEUROCHRONO_LIBRARIES}
-                                   ${Eigen3_LIBRARIES})
+                                   )

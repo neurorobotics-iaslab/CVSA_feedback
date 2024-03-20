@@ -53,7 +53,7 @@ class ControlCVSA : public CVSA_layout {
 		void on_received_data(const rosneuro_msgs::NeuroOutput& msg);
 
 	private:
-        Eigen::MatrixXf str2matrix(const std::string& str);
+		std::vector<std::vector<float>> str2matrix(const std::string& str);
 
 	private:
 		ros::NodeHandle nh_;
@@ -69,7 +69,7 @@ class ControlCVSA : public CVSA_layout {
 		
 		std::vector<float> current_input_;
 		bool has_new_input_;
-		const float rate_ = 100.0f;
+		const float rate_ = 256.0f;
 
 };
 

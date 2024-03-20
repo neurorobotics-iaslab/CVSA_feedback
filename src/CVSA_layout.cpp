@@ -38,7 +38,7 @@ void CVSA_layout::setup(void) {
     for(int i = 0; i < this->nclasses_; i++) {
         neurodraw::Color color = CuePalette.at(i);
         neurodraw::Ring* ring = new neurodraw::Ring(0.15f,  0.03f, color);
-        ring->move(this->circlePositions_(i,0), this->circlePositions_(i,1));
+        ring->move(this->circlePositions_.at(i).at(0), this->circlePositions_.at(i).at(1));
         this->rings_.push_back(ring);
     }
 
@@ -86,10 +86,10 @@ void CVSA_layout::show_cue(int index) {
 void CVSA_layout::show_boom(int idx_position, int idx_color) { 
 
     if(idx_position == idx_color){
-        this->circle_->move(this->circlePositions_(idx_position,0), this->circlePositions_(idx_position,1));
+        this->circle_->move(this->circlePositions_.at(idx_position).at(0), this->circlePositions_.at(idx_position).at(1));
         this->circle_->set_color(CuePalette.at(idx_color));
     }else if(idx_color == CuePalette.size()-1){
-        this->circle_->move(this->circlePositions_(idx_position,0), this->circlePositions_(idx_position,1));
+        this->circle_->move(this->circlePositions_.at(idx_position).at(0), this->circlePositions_.at(idx_position).at(1));
         this->circle_->set_color(CuePalette.at(idx_color));
 
     }else{
@@ -134,7 +134,8 @@ bool CVSA_layout::set_nclasses(int nclasses){
     this->nclasses_ = nclasses;
     return true;
 }
-bool CVSA_layout::set_circle_positions(Eigen::MatrixXf circlePositions){
+
+bool CVSA_layout::set_circle_positions(std::vector<std::vector<float>> circlePositions){
     this->circlePositions_ = circlePositions;
     return true;
 }

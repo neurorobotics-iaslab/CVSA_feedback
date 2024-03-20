@@ -62,7 +62,7 @@ class TrainingCVSA : public CVSA_layout {
         void on_received_data(const rosneuro_msgs::NeuroOutput& msg);
 
     private:
-        Eigen::MatrixXf str2matrix(const std::string& str);
+        std::vector<std::vector<float>> str2matrix(const std::string& str);
 
     private:
         ros::NodeHandle nh_;

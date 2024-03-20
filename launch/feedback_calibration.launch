@@ -3,10 +3,10 @@
 
 	<!-- Feedback arguments -->
 		<arg name="modality" 	     default='calibration'/>
-		<arg name="thresholds"       default='[0.9, 0.9, 0.9]'/>
-		<arg name="classes"          default='[771, 773, 783]'/>
-		<arg name="trials"           default='[10, 10, 10]'/>
-		<arg name="circlePositions"  default="-1.3 -0.75; 1.3 -0.75; 0.0 0.65"/>
+		<arg name="thresholds"       default='[0.9, 0.9]'/>
+		<arg name="classes"          default='[771, 773]'/>
+		<arg name="trials"           default='[10, 10]'/>
+		<!--arg name="circlePositions"  default="-1.3 -0.75; 1.3 -0.75; 0.0 0.65"/-->
 		<!--arg name="circlePositions"  default="-1.3 -0.75; 1.3 -0.75"/-->
 		<!--arg name="circlePositions"  default="-1.3 -0.75; 1.3 -0.75; -1.3 0.85; 1.3 0.85"/-->
 			
@@ -22,7 +22,7 @@
 			
 	<!-- protocol arguments -->
 		<arg name="subject"   default="xx"/>
-		<arg name="task"      default="mi_bhbf"/>
+		<arg name="task"      default="cvsa_lbrb"/>
 		<arg name="extra"     default=""/>
 
 
