@@ -1,6 +1,3 @@
-#ifndef FEEDBACK_CVSA_LAYOUT_CPP_
-#define FEEDBACK_CVSA_LAYOUT_CPP_
-
 #include "feedback_cvsa/CVSA_layout.h"
 
 namespace feedback {
@@ -157,25 +154,28 @@ void CVSA_layout::on_request_reconfigure(config_cvsa &config, uint32_t level) {
     switch (this->nclasses_)
     {
     case 2:
+        if(std::fabs(config.threshold_0 - this->thresholds_[0]) > 0.00001) {
+            this->set_threshold(config.threshold_0, 0);
+        }
         if(std::fabs(config.threshold_1 - this->thresholds_[1]) > 0.00001) {
             this->set_threshold(config.threshold_1, 1);
-        }
-        if(std::fabs(config.threshold_2 - this->thresholds_[2]) > 0.00001) {
-            this->set_threshold(config.threshold_2, 2);
         }
         break;
     case 3:
+        if(std::fabs(config.threshold_0 - this->thresholds_[0]) > 0.00001) {
+            this->set_threshold(config.threshold_0, 0);
+        }
         if(std::fabs(config.threshold_1 - this->thresholds_[1]) > 0.00001) {
             this->set_threshold(config.threshold_1, 1);
         }
         if(std::fabs(config.threshold_2 - this->thresholds_[2]) > 0.00001) {
             this->set_threshold(config.threshold_2, 2);
-        }
-        if(std::fabs(config.threshold_3 - this->thresholds_[3]) > 0.00001) {
-            this->set_threshold(config.threshold_3, 3);
         }
         break;
     case 4:
+        if(std::fabs(config.threshold_0 - this->thresholds_[0]) > 0.00001) {
+            this->set_threshold(config.threshold_0, 0);
+        }
         if(std::fabs(config.threshold_1 - this->thresholds_[1]) > 0.00001) {
             this->set_threshold(config.threshold_1, 1);
         }
@@ -184,9 +184,6 @@ void CVSA_layout::on_request_reconfigure(config_cvsa &config, uint32_t level) {
         }
         if(std::fabs(config.threshold_3 - this->thresholds_[3]) > 0.00001) {
             this->set_threshold(config.threshold_3, 3);
-        }
-        if(std::fabs(config.threshold_4 - this->thresholds_[4]) > 0.00001) {
-            this->set_threshold(config.threshold_4, 4);
         }
         break;
     default:
@@ -196,5 +193,3 @@ void CVSA_layout::on_request_reconfigure(config_cvsa &config, uint32_t level) {
 
 
  } // namespace feedback
-
-#endif

@@ -1,5 +1,5 @@
-#ifndef FEEDBACK_CONTROLcvsa_H_
-#define FEEDBACK_CONTROLcvsa_H_
+#ifndef FEEDBACK_CONTROLCVSA_H_
+#define FEEDBACK_CONTROLCVSA_H_
 
 #include <ros/ros.h>
 

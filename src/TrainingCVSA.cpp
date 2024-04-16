@@ -356,4 +356,3 @@ int TrainingCVSA::is_target_hit(std::vector<float> input, int elapsed, int durat
 }
 
 } // namespace feedback
-
