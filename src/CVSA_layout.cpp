@@ -20,13 +20,6 @@ CVSA_layout::~CVSA_layout(void) {
 
 void CVSA_layout::setup(void) {
 
-    // set the default thresholds
-    this->thresholds_.resize(this->nclasses_);
-
-    // Bind dynamic reconfigure callback
-    this->recfg_callback_type_ = boost::bind(&CVSA_layout::on_request_reconfigure, this, _1, _2);
-    this->recfg_srv_.setCallback(this->recfg_callback_type_);
-
     // create the graphic elements
     this->cross_   = new neurodraw::Cross(0.3f, 0.05f);
     this->center_  = new neurodraw::Circle(0.03f, true, neurodraw::Palette::white);
@@ -70,7 +63,7 @@ void CVSA_layout::show_cue(int index) {
 
     neurodraw::Color color = CuePalette.at(CuePalette.size()-1);
 
-    if(index != -1){
+    if(index != -1 && index < CuePalette.size()){
         color = CuePalette.at(index);
     }else{
         ROS_WARN("Unknown direction required. Cue color is not set");
@@ -82,16 +75,16 @@ void CVSA_layout::show_cue(int index) {
 
 void CVSA_layout::show_boom(int idx_position, int idx_color) { 
 
-    if(idx_position == idx_color){
-        this->circle_->move(this->circlePositions_.at(idx_position).at(0), this->circlePositions_.at(idx_position).at(1));
-        this->circle_->set_color(CuePalette.at(idx_color));
-    }else if(idx_color == CuePalette.size()-1){
-        this->circle_->move(this->circlePositions_.at(idx_position).at(0), this->circlePositions_.at(idx_position).at(1));
-        this->circle_->set_color(CuePalette.at(idx_color));
-
-    }else{
-        ROS_WARN("Unknown circle required. Boom color is not set");
+    if(idx_position > this->circlePositions_.size() || idx_position < 0){
+        ROS_WARN("Unknown circle required. Boom position is not set");
+        return;
     }
+    if(idx_color >= CuePalette.size() && idx_color < 0){
+        ROS_WARN("Unknown color required. Boom position is not set");
+        return;
+    }
+    this->circle_->move(this->circlePositions_.at(idx_position).at(0), this->circlePositions_.at(idx_position).at(1));
+    this->circle_->set_color(CuePalette.at(idx_color));
     
     this->circle_->show();
 }
@@ -137,59 +130,4 @@ bool CVSA_layout::set_circle_positions(std::vector<std::vector<float>> circlePos
     return true;
 }
 
-bool CVSA_layout::set_threshold(float input, int index) {
-
-    if(index != -1){
-        this->thresholds_[index] = input;
-        ROS_WARN("Threshold for index %d changed to: %f", index, input);
-    }else{
-        return false;
-    }
-    
-    return true;
-}
-
-void CVSA_layout::on_request_reconfigure(config_cvsa &config, uint32_t level) {
-
-    switch (this->nclasses_)
-    {
-    case 2:
-        if(std::fabs(config.threshold_0 - this->thresholds_[0]) > 0.00001) {
-            this->set_threshold(config.threshold_0, 0);
-        }
-        if(std::fabs(config.threshold_1 - this->thresholds_[1]) > 0.00001) {
-            this->set_threshold(config.threshold_1, 1);
-        }
-        break;
-    case 3:
-        if(std::fabs(config.threshold_0 - this->thresholds_[0]) > 0.00001) {
-            this->set_threshold(config.threshold_0, 0);
-        }
-        if(std::fabs(config.threshold_1 - this->thresholds_[1]) > 0.00001) {
-            this->set_threshold(config.threshold_1, 1);
-        }
-        if(std::fabs(config.threshold_2 - this->thresholds_[2]) > 0.00001) {
-            this->set_threshold(config.threshold_2, 2);
-        }
-        break;
-    case 4:
-        if(std::fabs(config.threshold_0 - this->thresholds_[0]) > 0.00001) {
-            this->set_threshold(config.threshold_0, 0);
-        }
-        if(std::fabs(config.threshold_1 - this->thresholds_[1]) > 0.00001) {
-            this->set_threshold(config.threshold_1, 1);
-        }
-        if(std::fabs(config.threshold_2 - this->thresholds_[2]) > 0.00001) {
-            this->set_threshold(config.threshold_2, 2);
-        }
-        if(std::fabs(config.threshold_3 - this->thresholds_[3]) > 0.00001) {
-            this->set_threshold(config.threshold_3, 3);
-        }
-        break;
-    default:
-        break;
-    }
-}
-
-
- } // namespace feedback
+} // namespace feedback

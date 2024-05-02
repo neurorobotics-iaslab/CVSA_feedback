@@ -3,8 +3,6 @@
 
 #include <ros/ros.h>
 
-#include <dynamic_reconfigure/server.h>
-
 #include "feedback_cvsa/CVSAConfig.h"
 
 #include <neurodraw/Engine.h>
@@ -25,10 +23,6 @@ const std::array<neurodraw::Color, 5> CuePalette {
         neurodraw::Palette::yellow // for timeout
 };
 
-using config_cvsa          = feedback_cvsa::CVSAConfig;
-using dyncfg_cvsa          = dynamic_reconfigure::Server<config_cvsa>;
-
-
 class CVSA_layout {
 
     public:
@@ -37,8 +31,6 @@ class CVSA_layout {
 
         void setup(void);
         void reset(void);
-        bool set_threshold(float input, int index);
-        bool set_angle_range(float angle);
         bool set_nclasses(int nclasses);
         bool set_circle_positions(std::vector<std::vector<float>> circlePositions);
 
@@ -57,7 +49,6 @@ class CVSA_layout {
     protected:
         virtual void on_keyboard_event(const neurodraw::KeyboardEvent& event);
         float input2angle(float input);
-        void on_request_reconfigure(config_cvsa &config, uint32_t level);
         
 
     protected:
@@ -72,11 +63,7 @@ class CVSA_layout {
         // Default configuration
         int              nclasses_;
         bool             user_quit_;
-        std::vector<float> thresholds_;
         std::vector<std::vector<float>> circlePositions_;
-
-        dyncfg_cvsa recfg_srv_;
-        dyncfg_cvsa::CallbackType recfg_callback_type_;
         
 
 };

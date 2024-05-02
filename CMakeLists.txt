@@ -10,6 +10,7 @@ find_package(catkin REQUIRED COMPONENTS
              dynamic_reconfigure
              rosneuro_msgs
              rosneuro_feedback_wheel
+             message_generation
              )
 
 find_library(NEURODRAW_LIBRARIES neurodraw REQUIRED)
@@ -22,6 +23,20 @@ generate_dynamic_reconfigure_options(
   cfg/CVSA.cfg
 )
 
+add_service_files(
+  FILES
+  Repeat_trial.srv
+)
+add_message_files(
+  FILES
+    Eye_trials.msg
+)
+
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+)
+
 catkin_package(
   INCLUDE_DIRS 
     include
@@ -32,6 +47,7 @@ catkin_package(
     std_msgs
     rosneuro_msgs
     rosneuro_feedback_wheel
+    message_runtime
   DEPENDS
 )
 
@@ -50,6 +66,7 @@ add_library(${PROJECT_NAME}
             src/CVSA_layout.cpp
             src/TrainingCVSA.cpp
             src/ControlCVSA.cpp
+            src/TrialSequence.cpp
             )
 
 target_link_libraries(${PROJECT_NAME} 

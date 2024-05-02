@@ -70,6 +70,7 @@ class ControlCVSA : public CVSA_layout {
 		std::vector<float> current_input_;
 		bool has_new_input_;
 		const float rate_ = 256.0f;
+		std::vector<float> thresholds_;
 
 };
 

@@ -5,19 +5,17 @@ namespace feedback {
 
 TrainingCVSA::TrainingCVSA(void) : CVSA_layout("trainingCVSA"), p_nh_("~") {
 
-    this->pub_ = this->nh_.advertise<rosneuro_msgs::NeuroEvent>("/events/bus", 1);
-    this->sub_ = this->nh_.subscribe("/integrator/neuroprediction", 1, &TrainingCVSA::on_received_data, this);
-
+    this->pub_ = this->nh_.advertise<rosneuro_msgs::NeuroEvent>("events/bus", 1);
+    this->sub_ = this->nh_.subscribe("integrator/neuroprediction", 1, &TrainingCVSA::on_received_data, this);
 }
 
 TrainingCVSA::~TrainingCVSA(void) {}
 
 bool TrainingCVSA::configure(void) {
 
-    int mindur_active, maxdur_active, mindur_rest, maxdur_rest;
-    std::vector<float> thresholds;
     std::string modality;
 
+    /* PARAMETERS FOR THE LAYOUT */
     // Getting classes
     if(this->p_nh_.getParam("classes", this->classes_) == false) {
         ROS_ERROR("Parameter 'classes' is mandatory");
@@ -28,23 +26,26 @@ bool TrainingCVSA::configure(void) {
     // Getting layout positions
     std::string layout;
     if(this->p_nh_.getParam("circlePositions", layout) == true) {
-        this->set_circle_positions(this->str2matrix(layout));
-        if (this->circlePositions_.size() != this->nclasses_ || this->circlePositions_.at(0).size() != 2){
+        if (this->str2matrix(layout).size() != this->nclasses_ || this->str2matrix(layout).at(0).size() != 2){
             ROS_ERROR("The provided layout is not correct. It must be a matrix with %d rows and 2 columns", this->nclasses_);
             return false;
         } 
+        this->set_circle_positions(this->str2matrix(layout));
     }else{
         ROS_ERROR("Parameter 'circlePositions' is mandatory");
         return false;
     }
+    
     // set up the windows layout
 	this->setup();
 
+
+    /* PARAMETER FOR THE TRIAL EXECUTIONS*/
     // Getting thresholds
-    if(this->p_nh_.getParam("thresholds", thresholds) == false) {
+    if(this->p_nh_.getParam("thresholds", this->thresholds_) == false) {
         ROS_ERROR("Parameter 'thresholds' is mandatory");
         return false;
-    } else if(thresholds.size() != this->nclasses_) {
+    } else if(this->thresholds_.size() != this->nclasses_) {
         ROS_ERROR("Thresholds must be the same of the number of classes %d", this->nclasses_);
         return false;
     }
@@ -73,6 +74,15 @@ bool TrainingCVSA::configure(void) {
         return false;
     }
 
+    // Getting do or not eye calibration
+    if(this->p_nh_.getParam("eye_calibration", this->eye_calibration_) == false) {
+        ROS_ERROR("Parameter 'eye_calibration' is mandatory");
+        return false;
+    } else{
+        this->srv_ = this->nh_.advertiseService("/cvsa/repeat_trial", &TrainingCVSA::on_repeat_trial, this);
+        this->pub_trials_keep_ = this->nh_.advertise<feedback_cvsa::Eye_trials>("cvsa/trials_keep", 1);
+    }
+
     // Getting duration parameters
     ros::param::param("~duration/begin",            this->duration_.begin,             5000);
     ros::param::param("~duration/start",            this->duration_.start,             1000);
@@ -88,24 +98,24 @@ bool TrainingCVSA::configure(void) {
 
     // Setting parameters
     if(this->modality_ == Modality::Calibration) {
-        mindur_active = this->duration_.feedback_min;
-        maxdur_active = this->duration_.feedback_max;
+        this->mindur_active_ = this->duration_.feedback_min;
+        this->maxdur_active_ = this->duration_.feedback_max;
     } else {
-        mindur_active = this->duration_.timeout;
-        maxdur_active = this->duration_.timeout;
+        this->mindur_active_ = this->duration_.timeout;
+        this->maxdur_active_ = this->duration_.timeout;
     }
 
     for(int i = 0; i < this->nclasses_; i++) {
-        this->trialsequence_.addclass(this->classes_.at(i), this->trials_per_class_.at(i), mindur_active, maxdur_active);
-    }
-
-    for(int i = 0; i < this->nclasses_; i++) {
-        this->set_threshold(thresholds.at(i), i);
+        this->trialsequence_.addclass(this->classes_.at(i), this->trials_per_class_.at(i), this->mindur_active_, this->maxdur_active_);
     }
     
     ROS_INFO("Total number of classes: %ld", this->classes_.size());
     ROS_INFO("Total number of trials:  %d", this->trialsequence_.size());
     ROS_INFO("Trials have been randomized");
+
+    // Bind dynamic reconfigure callback
+    this->recfg_callback_type_ = boost::bind(&TrainingCVSA::on_request_reconfigure, this, _1, _2);
+    this->recfg_srv_.setCallback(this->recfg_callback_type_);
 
     return true;
 
@@ -189,9 +199,46 @@ void TrainingCVSA::on_received_data(const rosneuro_msgs::NeuroOutput& msg) {
         
 }
 
+bool TrainingCVSA::on_repeat_trial(feedback_cvsa::Repeat_trial::Request &req, feedback_cvsa::Repeat_trial::Response &res) {
+    int class2repeat = req.class2repeat;
+    this->trialsequence_.addtrial(class2repeat, this->mindur_active_, this->maxdur_active_);
+    this->trial_ok_ = 0;
+
+    res.success = true;
+    return true;
+}
+
 
 void TrainingCVSA::run(void) {
 
+    if(this->eye_calibration_){
+        ROS_INFO("Calibration eye started");
+        this->eye_calibration();
+    }
+    
+    ROS_INFO("Protocol BCI started");
+    this->bci_protocol();
+}
+
+void TrainingCVSA::eye_calibration(void) {
+
+    this->sleep(this->duration_.begin);
+    this->setevent(Events::StartCalibEye);
+    this->show_fixation();
+    this->sleep(this->duration_.fixation);
+    this->hide_fixation();
+    this->sleep(this->duration_.iti);
+    this->setevent(Events::CFeedback);
+    this->show_center();
+    this->sleep(this->duration_.feedback_max);
+    this->hide_center();
+    this->setevent(Events::CFeedback + Events::Off);
+    this->sleep(this->duration_.iti);
+    this->setevent(Events::StartCalibEye + Events::Off);
+    this->sleep(this->duration_.cue); 
+}
+
+void TrainingCVSA::bci_protocol(void){
     int       trialnumber;
     int       trialclass;
     int       trialduration;
@@ -206,21 +253,20 @@ void TrainingCVSA::run(void) {
     rosneuro::feedback::LinearPilot linearpilot(1000.0f/this->rate_);
     rosneuro::feedback::Autopilot*  autopilot;
 
-    ROS_INFO("Protocol started");
-    
     // Begin
     this->sleep(this->duration_.begin);
     
-    for(auto it = this->trialsequence_.begin(); it != this->trialsequence_.end(); ++it) {
-        
+    for(int i = 0; i < this->trialsequence_.size(); i++) {
         // Getting trial information
-        trialnumber    = (it - this->trialsequence_.begin()) + 1;
-        trialclass     = (*it).classid;
-        trialduration  = (*it).duration;
+        trialnumber    = i + 1;
+        Trial t = this->trialsequence_.gettrial(i);
+        trialclass     = t.classid;
+        trialduration  = t.duration;
         idx_class      = this->class2index(trialclass); 
         trialdirection = this->class2direction(trialclass);
         trialthreshold = this->direction2threshold(trialdirection);
         targethit      = -1;
+        this->trial_ok_ = 1;
 
         if(this->modality_ == Modality::Calibration) {
             autopilot = &linearpilot;
@@ -311,6 +357,7 @@ void TrainingCVSA::run(void) {
 
 
         if(ros::ok() == false || this->user_quit_ == true) break;
+        this->trials_keep_.push_back(this->trial_ok_);
 
         // Inter trial interval
         this->hide_cue();
@@ -325,6 +372,10 @@ void TrainingCVSA::run(void) {
         this->sleep(this->duration_.end);
     ROS_INFO("Protocol ended");
 
+    // Publish the trials keep
+    feedback_cvsa::Eye_trials msg;
+    msg.trials_to_keep = this->trials_keep_;
+    this->pub_trials_keep_.publish(msg);
 }
 
 void TrainingCVSA::setevent(int event) {
@@ -353,6 +404,48 @@ int TrainingCVSA::is_target_hit(std::vector<float> input, int elapsed, int durat
     }
     
     return target;
+}
+
+void TrainingCVSA::on_request_reconfigure(config_cvsa &config, uint32_t level) {
+
+    switch (this->nclasses_)
+    {
+    case 2:
+        if(std::fabs(config.threshold_0 - this->thresholds_[0]) > 0.00001) {
+            this->thresholds_[0] = config.threshold_0;
+        }
+        if(std::fabs(config.threshold_1 - this->thresholds_[1]) > 0.00001) {
+            this->thresholds_[1] = config.threshold_1;
+        }
+        break;
+    case 3:
+        if(std::fabs(config.threshold_0 - this->thresholds_[0]) > 0.00001) {
+            this->thresholds_[0] = config.threshold_0;
+        }
+        if(std::fabs(config.threshold_1 - this->thresholds_[1]) > 0.00001) {
+            this->thresholds_[1] = config.threshold_1;
+        }
+        if(std::fabs(config.threshold_2 - this->thresholds_[2]) > 0.00001) {
+            this->thresholds_[2] = config.threshold_2;
+        }
+        break;
+    case 4:
+        if(std::fabs(config.threshold_0 - this->thresholds_[0]) > 0.00001) {
+            this->thresholds_[0] = config.threshold_0;
+        }
+        if(std::fabs(config.threshold_1 - this->thresholds_[1]) > 0.00001) {
+            this->thresholds_[1] = config.threshold_1;
+        }
+        if(std::fabs(config.threshold_2 - this->thresholds_[2]) > 0.00001) {
+            this->thresholds_[2] = config.threshold_2;
+        }
+        if(std::fabs(config.threshold_3 - this->thresholds_[3]) > 0.00001) {
+            this->thresholds_[3] = config.threshold_3;
+        }
+        break;
+    default:
+        break;
+    }
 }
 
 } // namespace feedback

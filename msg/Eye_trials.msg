@@ -1,0 +1,1 @@
+int32[] trials_to_keep # 1 to keep 0 to remove

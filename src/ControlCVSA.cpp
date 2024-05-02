@@ -12,9 +12,6 @@ ControlCVSA::ControlCVSA(void) : CVSA_layout("controlCVSA"), p_nh_("~") {
 ControlCVSA::~ControlCVSA(void) {}
 
 bool ControlCVSA::configure(void) {
-
-	std::vector<float> thresholds;
-
 	// Getting classes
     if(this->p_nh_.getParam("classes", this->classes_) == false) {
         ROS_ERROR("Parameter 'classes' is mandatory");
@@ -38,10 +35,10 @@ bool ControlCVSA::configure(void) {
 	this->setup();
 
 	// Getting thresholds
-	if(this->p_nh_.getParam("thresholds", thresholds) == false) {
+	if(this->p_nh_.getParam("thresholds", this->thresholds_) == false) {
 		ROS_ERROR("Parameter 'thresholds' is mandatory");
 		return false;
-	} else if(thresholds.size() != this->nclasses_) {
+	} else if(this->thresholds_.size() != this->nclasses_) {
 		ROS_ERROR("Thresholds must be same of the number of classes: %d", this->nclasses_);
 		return false;
 	}	
@@ -52,11 +49,6 @@ bool ControlCVSA::configure(void) {
 	ros::param::param("~duration/iti", 	 this->duration_.iti,    100);
 	ros::param::param("~duration/end", 	 this->duration_.end,   2000);
 
-	// Setting parameters
-	for(int i = 0; i < this->nclasses_; i++) {
-        this->set_threshold(thresholds.at(i), i);
-    }
-	
 	return true;
 }
 
