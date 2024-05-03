@@ -79,6 +79,20 @@ bool TrainingCVSA::configure(void) {
         ROS_ERROR("Parameter 'eye_calibration' is mandatory");
         return false;
     } else{
+        if(this->p_nh_.getParam("calibration_classes", this->calibration_classes_) == false) {
+            ROS_ERROR("Parameter 'calibration_classes' is mandatory since eye_calibration is true");
+            return false;
+        } 
+        if(this->p_nh_.getParam("calibration_positions", layout) == true) {
+            if (this->str2matrix(layout).size() != this->calibration_classes_.size() || this->str2matrix(layout).at(0).size() != 2){
+                ROS_ERROR("The provided layout for calibration_positions is not correct. It must be a matrix with %ld rows and 2 columns", this->calibration_classes_.size());
+                return false;
+            } 
+            this->calibration_positions_ = this->str2matrix(layout);
+        }else{
+            ROS_ERROR("Parameter 'calibration_positions' is mandatory since eye_calibration is true");
+            return false;
+        }
         this->srv_ = this->nh_.advertiseService("/cvsa/repeat_trial", &TrainingCVSA::on_repeat_trial, this);
         this->pub_trials_keep_ = this->nh_.advertise<feedback_cvsa::Eye_trials>("cvsa/trials_keep", 1);
     }
@@ -94,6 +108,7 @@ bool TrainingCVSA::configure(void) {
     ros::param::param("~duration/timeout",          this->duration_.timeout,          10000);
     ros::param::param("~duration/iti",              this->duration_.iti,                100);
     ros::param::param("~duration/end",              this->duration_.end,               2000);
+    ros::param::param("~duration/calibration",      this->duration_.calibration,       2000);
 
 
     // Setting parameters
@@ -217,25 +232,27 @@ void TrainingCVSA::run(void) {
     }
     
     ROS_INFO("Protocol BCI started");
+    this->show_rings_classes();
     this->bci_protocol();
 }
 
 void TrainingCVSA::eye_calibration(void) {
 
     this->sleep(this->duration_.begin);
-    this->setevent(Events::StartCalibEye);
-    this->show_fixation();
-    this->sleep(this->duration_.fixation);
-    this->hide_fixation();
-    this->sleep(this->duration_.iti);
-    this->setevent(Events::CFeedback);
-    this->show_center();
-    this->sleep(this->duration_.feedback_max);
-    this->hide_center();
-    this->setevent(Events::CFeedback + Events::Off);
-    this->sleep(this->duration_.iti);
-    this->setevent(Events::StartCalibEye + Events::Off);
-    this->sleep(this->duration_.cue); 
+
+    for(int i = 0; i < this->calibration_classes_.size(); i++) {
+        this->setevent(Events::StartCalibEye);
+        this->sleep(this->duration_.iti);
+        this->setevent(calibration_classes_.at(i));
+        this->show_calibration(this->calibration_positions_.at(i));
+        this->sleep(this->duration_.calibration);
+        this->hide_calibration();
+        this->setevent(calibration_classes_.at(i) + Events::Off);
+        this->sleep(this->duration_.iti);
+        this->setevent(Events::StartCalibEye + Events::Off);
+        this->sleep(this->duration_.iti);
+    }
+    
 }
 
 void TrainingCVSA::bci_protocol(void){

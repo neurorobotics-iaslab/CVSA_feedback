@@ -35,10 +35,13 @@ class CVSA_layout {
         bool set_circle_positions(std::vector<std::vector<float>> circlePositions);
 
         void show_fixation(void);
+        void show_calibration(std::vector<float> position);
         void show_center(void);
+        void show_rings_classes(void);
         void show_cue(int index);
         void show_boom(int idx_position, int idx_color);
         void hide_fixation(void);
+        void hide_calibration(void);
         void hide_center(void);
         void hide_cue(void);
         void hide_boom(void);
@@ -59,6 +62,7 @@ class CVSA_layout {
         neurodraw::Rectangle*              square_;
         neurodraw::Circle*                 circle_; // to show the hit
         neurodraw::Circle*                 center_; // to show the center point to look
+        neurodraw::Circle*                 calibration_; // to show the calibration point to look
 
         // Default configuration
         int              nclasses_;

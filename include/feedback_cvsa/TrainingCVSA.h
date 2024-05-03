@@ -32,6 +32,7 @@ struct Events {
     static const int Off           = 32768;
 
     static const int StartCalibEye = 2;
+    
 };
 
 struct Duration {
@@ -46,6 +47,7 @@ struct Duration {
     int timeout_on_rest;
     int iti;
     int end;
+    int calibration;
 };
 
 using config_cvsa          = feedback_cvsa::CVSAConfig;
@@ -109,6 +111,8 @@ class TrainingCVSA : public CVSA_layout {
         bool show_on_rest_;
         std::vector<float> thresholds_;
 		bool eye_calibration_;
+        std::vector<std::vector<float>> calibration_positions_;
+        std::vector<int> calibration_classes_;
         int trial_ok_;
         std::vector<int> trials_keep_;
 
