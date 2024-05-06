@@ -93,6 +93,19 @@ bool TrainingCVSA::configure(void) {
             ROS_ERROR("Parameter 'calibration_positions' is mandatory since eye_calibration is true");
             return false;
         }
+        if(this->p_nh_.getParam("max_trials", this->max_trials_) == false) {
+            ROS_ERROR("Parameter 'max_trials' is mandatory since eye_calibration is true");
+            return false;
+        }else{
+            int sum;
+            for(int i = 0; i < this->trials_per_class_.size(); i++)
+                sum += this->trials_per_class_.at(i);
+    
+            if(this->max_trials_ < sum){
+                ROS_ERROR("The number of max_trials must be greater than the sum of the trials per class");
+                return false;
+            }
+        }
         this->srv_ = this->nh_.advertiseService("/cvsa/repeat_trial", &TrainingCVSA::on_repeat_trial, this);
         this->pub_trials_keep_ = this->nh_.advertise<feedback_cvsa::Eye_trials>("cvsa/trials_keep", 1);
     }
@@ -123,7 +136,6 @@ bool TrainingCVSA::configure(void) {
     for(int i = 0; i < this->nclasses_; i++) {
         this->trialsequence_.addclass(this->classes_.at(i), this->trials_per_class_.at(i), this->mindur_active_, this->maxdur_active_);
     }
-    this->max_trials_ = this->trialsequence_.size() * 2;
     
     ROS_INFO("Total number of classes: %ld", this->classes_.size());
     ROS_INFO("Total number of trials:  %d", this->trialsequence_.size());

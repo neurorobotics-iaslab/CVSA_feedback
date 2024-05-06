@@ -72,7 +72,7 @@ void TrialSequence::addtrial(int classid, int mindur, int maxdur) {
 	trial.classid = classid;
 	trial.duration = intdis(this->rndgen_);
 
-	std::cout<<"Class: "<<trial.classid<<" | Duration: "<<trial.duration<<std::endl;
+	//std::cout<<"Class: "<<trial.classid<<" | Duration: "<<trial.duration<<std::endl;
 
 	this->sequence_.push_back(trial);
 
