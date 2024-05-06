@@ -263,7 +263,7 @@ void TrainingCVSA::eye_calibration(void) {
     // Start the calibration
     for(int i = 0; i < this->calibration_classes_.size(); i++) {
         this->setevent(Events::StartCalibEye);
-        std::cout << calibration_classes_.at(idx_class.at(i)) << std::endl;
+        //std::cout << calibration_classes_.at(idx_class.at(i)) << std::endl;
         this->sleep(this->duration_.iti);
         this->setevent(calibration_classes_.at(idx_class.at(i)));
         this->show_calibration(this->calibration_positions_.at(idx_class.at(i)));
