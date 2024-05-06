@@ -4,6 +4,7 @@
 #include <numeric>
 #include <array>
 #include <ros/ros.h>
+#include <random>
 
 #include <dynamic_reconfigure/server.h>
 #include "feedback_cvsa/Repeat_trial.h"
@@ -96,6 +97,7 @@ class TrainingCVSA : public CVSA_layout {
 
         std::vector<int> classes_;
         std::vector<int> trials_per_class_;
+        int max_trials_;
 
         Duration duration_;
         Modality modality_;

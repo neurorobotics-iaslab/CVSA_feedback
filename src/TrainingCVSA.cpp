@@ -123,6 +123,7 @@ bool TrainingCVSA::configure(void) {
     for(int i = 0; i < this->nclasses_; i++) {
         this->trialsequence_.addclass(this->classes_.at(i), this->trials_per_class_.at(i), this->mindur_active_, this->maxdur_active_);
     }
+    this->max_trials_ = this->trialsequence_.size() * 2;
     
     ROS_INFO("Total number of classes: %ld", this->classes_.size());
     ROS_INFO("Total number of trials:  %d", this->trialsequence_.size());
@@ -215,12 +216,18 @@ void TrainingCVSA::on_received_data(const rosneuro_msgs::NeuroOutput& msg) {
 }
 
 bool TrainingCVSA::on_repeat_trial(feedback_cvsa::Repeat_trial::Request &req, feedback_cvsa::Repeat_trial::Response &res) {
-    int class2repeat = req.class2repeat;
-    this->trialsequence_.addtrial(class2repeat, this->mindur_active_, this->maxdur_active_);
-    this->trial_ok_ = 0;
+    if(this->trialsequence_.size() < this->max_trials_) {
+        int class2repeat = req.class2repeat;
+        this->trialsequence_.addtrial(class2repeat, this->mindur_active_, this->maxdur_active_);
+        this->trial_ok_ = 0;
 
-    res.success = true;
-    return true;
+        res.success = true;
+        return true;
+    }
+
+    res.success = false;
+    return false;
+    
 }
 
 
@@ -243,14 +250,26 @@ void TrainingCVSA::eye_calibration(void) {
     this->sleep(this->duration_.fixation);
     this->hide_fixation();
 
+    // randomize the order of the calibration classes
+    std::vector<int> idx_class;
+    for(int i = 0; i < this->calibration_classes_.size(); i++) 
+        idx_class.push_back(i);
+
+    std::random_device rnddev;
+    std::mt19937 rndgen(rnddev());
+
+    std::shuffle(std::begin(idx_class), std::end(idx_class), rndgen);
+
+    // Start the calibration
     for(int i = 0; i < this->calibration_classes_.size(); i++) {
         this->setevent(Events::StartCalibEye);
+        std::cout << calibration_classes_.at(idx_class.at(i)) << std::endl;
         this->sleep(this->duration_.iti);
-        this->setevent(calibration_classes_.at(i));
-        this->show_calibration(this->calibration_positions_.at(i));
+        this->setevent(calibration_classes_.at(idx_class.at(i)));
+        this->show_calibration(this->calibration_positions_.at(idx_class.at(i)));
         this->sleep(this->duration_.calibration);
         this->hide_calibration();
-        this->setevent(calibration_classes_.at(i) + Events::Off);
+        this->setevent(calibration_classes_.at(idx_class.at(i)) + Events::Off);
         this->sleep(this->duration_.iti);
         this->setevent(Events::StartCalibEye + Events::Off);
         this->sleep(this->duration_.iti);
