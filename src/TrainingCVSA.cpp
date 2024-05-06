@@ -239,6 +239,9 @@ void TrainingCVSA::run(void) {
 void TrainingCVSA::eye_calibration(void) {
 
     this->sleep(this->duration_.begin);
+    this->show_fixation();
+    this->sleep(this->duration_.fixation);
+    this->hide_fixation();
 
     for(int i = 0; i < this->calibration_classes_.size(); i++) {
         this->setevent(Events::StartCalibEye);
