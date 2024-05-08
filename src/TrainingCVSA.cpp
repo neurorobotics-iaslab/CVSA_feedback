@@ -7,6 +7,7 @@ TrainingCVSA::TrainingCVSA(void) : CVSA_layout("trainingCVSA"), p_nh_("~") {
 
     this->pub_ = this->nh_.advertise<rosneuro_msgs::NeuroEvent>("events/bus", 1);
     this->sub_ = this->nh_.subscribe("integrator/neuroprediction", 1, &TrainingCVSA::on_received_data, this);
+    this->srv_camera_ready_ = this->nh_.serviceClient<std_srvs::Trigger>("cvsa/camera_ready");
 }
 
 TrainingCVSA::~TrainingCVSA(void) {}
@@ -106,8 +107,8 @@ bool TrainingCVSA::configure(void) {
                 return false;
             }
         }
-        this->srv_ = this->nh_.advertiseService("/cvsa/repeat_trial", &TrainingCVSA::on_repeat_trial, this);
-        this->pub_trials_keep_ = this->nh_.advertise<feedback_cvsa::Eye_trials>("cvsa/trials_keep", 1);
+        this->srv_repeat_trial_ = this->nh_.advertiseService("cvsa/repeat_trial", &TrainingCVSA::on_repeat_trial, this);
+        this->pub_trials_keep_ = this->nh_.advertise<feedback_cvsa::Trials_to_keep>("cvsa/trials_keep", 1);
     }
 
     // Getting duration parameters
@@ -245,14 +246,27 @@ bool TrainingCVSA::on_repeat_trial(feedback_cvsa::Repeat_trial::Request &req, fe
 
 void TrainingCVSA::run(void) {
 
-    if(this->eye_calibration_){
-        ROS_INFO("Calibration eye started");
-        this->eye_calibration();
+    this->srv_camera_ready_.waitForExistence();
+    std_srvs::Trigger srv;
+
+    while(true){
+        this->srv_camera_ready_.call(srv);
+        if(srv.response.success == false) {
+            ROS_ERROR("Camera is not ready");
+            return;
+        }else{
+            if(this->eye_calibration_){
+            ROS_INFO("Calibration eye started");
+            this->eye_calibration();
+        }
+
+        ROS_INFO("Protocol BCI started");
+        this->show_rings_classes(); // show the rings of each class in the drawing window
+        this->bci_protocol();
+        break;
+        }
     }
     
-    ROS_INFO("Protocol BCI started");
-    this->show_rings_classes();
-    this->bci_protocol();
 }
 
 void TrainingCVSA::eye_calibration(void) {
@@ -424,7 +438,7 @@ void TrainingCVSA::bci_protocol(void){
     ROS_INFO("Protocol ended");
 
     // Publish the trials keep
-    feedback_cvsa::Eye_trials msg;
+    feedback_cvsa::Trials_to_keep msg;
     msg.trials_to_keep = this->trials_keep_;
     this->pub_trials_keep_.publish(msg);
 }

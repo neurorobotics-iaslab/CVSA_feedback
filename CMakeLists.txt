@@ -7,6 +7,7 @@ SET(CMAKE_BUILD_TYPE RelWithDebInfo)
 find_package(catkin REQUIRED COMPONENTS 
              roscpp 
              std_msgs
+             std_srvs
              dynamic_reconfigure
              rosneuro_msgs
              rosneuro_feedback_wheel
@@ -29,7 +30,7 @@ add_service_files(
 )
 add_message_files(
   FILES
-    Eye_trials.msg
+    Trials_to_keep.msg
 )
 
 generate_messages(
@@ -48,6 +49,7 @@ catkin_package(
     rosneuro_msgs
     rosneuro_feedback_wheel
     message_runtime
+    std_srvs
   DEPENDS
 )
 

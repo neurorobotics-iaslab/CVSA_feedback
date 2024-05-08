@@ -9,7 +9,8 @@
 #include <dynamic_reconfigure/server.h>
 #include "feedback_cvsa/Repeat_trial.h"
 
-#include "feedback_cvsa/Eye_trials.h"
+#include "feedback_cvsa/Trials_to_keep.h"
+#include <std_srvs/Trigger.h>
 
 #include <rosneuro_msgs/NeuroEvent.h>
 #include <rosneuro_msgs/NeuroOutput.h>
@@ -88,7 +89,8 @@ class TrainingCVSA : public CVSA_layout {
         ros::Subscriber sub_;
         ros::Publisher pub_;
         ros::Publisher pub_trials_keep_;
-        ros::ServiceServer srv_;
+        ros::ServiceServer srv_repeat_trial_;
+        ros::ServiceClient srv_camera_ready_;
 
         rosneuro_msgs::NeuroEvent  event_msg_;
         rosneuro_msgs::NeuroOutput inputmsg_;
