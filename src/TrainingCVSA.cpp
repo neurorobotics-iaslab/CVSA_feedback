@@ -94,17 +94,19 @@ bool TrainingCVSA::configure(void) {
             ROS_ERROR("Parameter 'calibration_positions' is mandatory since eye_calibration is true");
             return false;
         }
-        if(this->p_nh_.getParam("max_trials", this->max_trials_) == false) {
-            ROS_ERROR("Parameter 'max_trials' is mandatory since eye_calibration is true");
+        if(this->p_nh_.getParam("max_trials_per_class_", this->max_trials_per_class_) == false) {
+            ROS_ERROR("Parameter 'max_trials_per_class_' is mandatory since eye_calibration is true");
+            if(this->max_trials_per_class_.size() < this->nclasses_){
+                ROS_ERROR("The number of max_trials_per_class_ must be greater than the number of classes");
+            }
             return false;
         }else{
             int sum;
-            for(int i = 0; i < this->trials_per_class_.size(); i++)
-                sum += this->trials_per_class_.at(i);
-    
-            if(this->max_trials_ < sum){
-                ROS_ERROR("The number of max_trials must be greater than the sum of the trials per class");
-                return false;
+            for(int i = 0; i < this->trials_per_class_.size(); i++){
+                if(this->max_trials_per_class_.at(i) < this->trials_per_class_.at(i)){
+                    ROS_ERROR("The number of max_trials_per_class_ must be greater than the trials_per_class_ for each class of the trials per class");
+                    return false;
+                }
             }
         }
         this->srv_repeat_trial_ = this->nh_.advertiseService("cvsa/repeat_trial", &TrainingCVSA::on_repeat_trial, this);
@@ -229,15 +231,20 @@ void TrainingCVSA::on_received_data(const rosneuro_msgs::NeuroOutput& msg) {
 }
 
 bool TrainingCVSA::on_repeat_trial(feedback_cvsa::Repeat_trial::Request &req, feedback_cvsa::Repeat_trial::Response &res) {
-    if(this->trialsequence_.size() < this->max_trials_) {
-        int class2repeat = req.class2repeat;
-        this->trialsequence_.addtrial(class2repeat, this->mindur_active_, this->maxdur_active_);
-        this->trial_ok_ = 0;
-
-        res.success = true;
-        return true;
+    this->trial_ok_ = 0;
+    int class2repeat = req.class2repeat;
+    auto it = std::find(this->classes_.begin(), this->classes_.end(), class2repeat);
+    if(it != this->classes_.end()) {
+        int idx_class = std::distance(this->classes_.begin(), it);
+        if(this->trials_per_class_.at(idx_class) <= this->max_trials_per_class_.at(idx_class)){
+            this->trials_per_class_.at(idx_class) = this->trials_per_class_.at(idx_class) + 1;
+            this->trialsequence_.addtrial(class2repeat, this->mindur_active_, this->maxdur_active_);
+            res.success = true;
+            return true;
+        }
+        
     }
-
+    
     res.success = false;
     return false;
     
