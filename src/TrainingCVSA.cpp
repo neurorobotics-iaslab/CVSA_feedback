@@ -94,10 +94,10 @@ bool TrainingCVSA::configure(void) {
             ROS_ERROR("Parameter 'calibration_positions' is mandatory since eye_calibration is true");
             return false;
         }
-        if(this->p_nh_.getParam("max_trials_per_class_", this->max_trials_per_class_) == false) {
-            ROS_ERROR("Parameter 'max_trials_per_class_' is mandatory since eye_calibration is true");
+        if(this->p_nh_.getParam("max_trials_per_class", this->max_trials_per_class_) == false) {
+            ROS_ERROR("Parameter 'max_trials_per_class' is mandatory since eye_calibration is true");
             if(this->max_trials_per_class_.size() < this->nclasses_){
-                ROS_ERROR("The number of max_trials_per_class_ must be greater than the number of classes");
+                ROS_ERROR("The number of max_trials_per_class must be greater than the number of classes");
             }
             return false;
         }else{
@@ -254,23 +254,22 @@ bool TrainingCVSA::on_repeat_trial(feedback_cvsa::Repeat_trial::Request &req, fe
 void TrainingCVSA::run(void) {
 
     this->srv_camera_ready_.waitForExistence();
-    std_srvs::Trigger srv;
+    std_srvs::Trigger srv = std_srvs::Trigger();
 
     while(true){
-        this->srv_camera_ready_.call(srv);
+        this->srv_camera_ready_.call(srv.request, srv.response);
         if(srv.response.success == false) {
-            ROS_ERROR("Camera is not ready");
-            return;
+            ROS_WARN("Camera is not ready");
         }else{
             if(this->eye_calibration_){
-            ROS_INFO("Calibration eye started");
-            this->eye_calibration();
-        }
+                ROS_INFO("Calibration eye started");
+                this->eye_calibration();
+            }
 
-        ROS_INFO("Protocol BCI started");
-        this->show_rings_classes(); // show the rings of each class in the drawing window
-        this->bci_protocol();
-        break;
+            ROS_INFO("Protocol BCI started");
+            this->show_rings_classes(); // show the rings of each class in the drawing window
+            this->bci_protocol();
+            break;
         }
     }
     
