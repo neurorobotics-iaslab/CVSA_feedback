@@ -14,6 +14,10 @@ TrainingCVSA::~TrainingCVSA(void) {}
 
 bool TrainingCVSA::configure(void) {
 
+    /* Bind dynamic reconfigure callback */
+    this->recfg_callback_type_ = boost::bind(&TrainingCVSA::on_request_reconfigure, this, _1, _2);
+    this->recfg_srv_.setCallback(this->recfg_callback_type_);
+
     std::string modality;
 
     /* PARAMETERS FOR THE LAYOUT */
@@ -75,11 +79,22 @@ bool TrainingCVSA::configure(void) {
         return false;
     }
 
+    /* PARAMETER FOR THE SOUND FEEDBACK*/
+    // Getting parameters for audio feedback
+    std::string audio_path;
+    if(this->p_nh_.getParam("audio_path", audio_path) == false) {
+        ROS_ERROR("Parameter 'audio_feedback' is mandatory");
+        return false;
+    }
+    this->loadWAVFile(audio_path);
+
+    /* PARAMETER FOR THE EYE*/
     // Getting do or not eye calibration
     if(this->p_nh_.getParam("eye_calibration", this->eye_calibration_) == false) {
         ROS_ERROR("Parameter 'eye_calibration' is mandatory");
         return false;
-    } else{
+    } 
+    if(this->eye_calibration_ == true){
         if(this->p_nh_.getParam("calibration_classes", this->calibration_classes_) == false) {
             ROS_ERROR("Parameter 'calibration_classes' is mandatory since eye_calibration is true");
             return false;
@@ -143,10 +158,6 @@ bool TrainingCVSA::configure(void) {
     ROS_INFO("Total number of classes: %ld", this->classes_.size());
     ROS_INFO("Total number of trials:  %d", this->trialsequence_.size());
     ROS_INFO("Trials have been randomized");
-
-    // Bind dynamic reconfigure callback
-    this->recfg_callback_type_ = boost::bind(&TrainingCVSA::on_request_reconfigure, this, _1, _2);
-    this->recfg_srv_.setCallback(this->recfg_callback_type_);
 
     return true;
 
@@ -219,14 +230,12 @@ void TrainingCVSA::on_received_data(const rosneuro_msgs::NeuroOutput& msg) {
     }
 
     if(class_not_found == true) {
-        this->has_new_input_ = false;
         ROS_WARN_THROTTLE(5.0f, "The incoming neurooutput message does not have the provided classes");
         return;
     }
 
     // Set the new incoming data
     this->current_input_ = msg.softpredict.data;
-    this->has_new_input_ = true;
         
 }
 
@@ -320,6 +329,8 @@ void TrainingCVSA::bci_protocol(void){
     int       trialdirection;
     int       targethit;
     ros::Rate r(this->rate_);
+    std::vector<int> idxs_classes(this->nclasses_);
+    std::iota(idxs_classes.begin(), idxs_classes.end(), 0);
 
     rosneuro::feedback::LinearPilot linearpilot(1000.0f/this->rate_);
     rosneuro::feedback::Autopilot*  autopilot;
@@ -338,10 +349,13 @@ void TrainingCVSA::bci_protocol(void){
         trialthreshold = this->direction2threshold(trialdirection);
         targethit      = -1;
         this->trial_ok_ = 1;
+        std::vector<int> idxs_classes_not_trial = idxs_classes;
+        auto tmp_vector = std::remove(idxs_classes_not_trial.begin(), idxs_classes_not_trial.end(), idx_class);
+        idxs_classes_not_trial.erase(tmp_vector, idxs_classes_not_trial.end());
 
         if(this->modality_ == Modality::Calibration) {
             autopilot = &linearpilot;
-            autopilot->set(0.5f, trialthreshold, trialduration); 
+            autopilot->set(1.0f/this->nclasses_, trialthreshold, trialduration); 
         }
 
         ROS_INFO("Trial %d/%d (class: %d | duration: %d ms)", trialnumber, this->trialsequence_.size(), trialclass, trialduration);
@@ -378,18 +392,30 @@ void TrainingCVSA::bci_protocol(void){
         // Send reset event
         this->setevent(Events::CFeedback);
         this->show_center();
-        this->has_new_input_ = false;
 
-        this->current_input_ = std::vector<float>(this->nclasses_, 0.5f);
-        
-        while(ros::ok() && this->user_quit_ == false && targethit == -1) {
+        // Start the sound feedback
+        this->openAudioDevice();
+        size_t sampleAudio = this->sampleRate_audio_/this->rate_;
+        size_t bufferAudioSize = sampleAudio * this->channels_audio_;
+        this->buffer_audio_played_.resize(bufferAudioSize);
+        int idx_sampleAudio = 0;
+
+        // Set up initial probabilities
+        this->current_input_ = std::vector<float>(this->nclasses_, 1.0f/this->nclasses_);
+
+        while(ros::ok() && this->user_quit_ == false && targethit == -1 && idx_sampleAudio < this->buffer_audio_full_.size()) {
 
             if(this->modality_ == Modality::Calibration) {
+                this->fillAudioBuffer(idx_sampleAudio);
+                ao_play(this->device_audio_, reinterpret_cast<char*>(this->buffer_audio_played_.data()), bufferAudioSize * sizeof(short));
                 this->current_input_[idx_class] = this->current_input_[idx_class] + autopilot->step();
-            } else if(this->modality_ == Modality::Evaluation) {
-                if(this->has_new_input_ == true) {
-                    this->has_new_input_ = false;
+                for(auto it = idxs_classes_not_trial.begin(); it != idxs_classes_not_trial.end(); ++it) {
+                    this->current_input_[*it] = (1.0f - this->current_input_[idx_class]) / (this->nclasses_ - 1);
                 }
+                
+            } else if(this->modality_ == Modality::Evaluation) {
+                this->fillAudioBuffer(idx_sampleAudio);
+                ao_play(this->device_audio_, reinterpret_cast<char*>(this->buffer_audio_played_.data()), bufferAudioSize * sizeof(short));
             }
             
             targethit = this->is_target_hit(this->current_input_,  
@@ -430,6 +456,9 @@ void TrainingCVSA::bci_protocol(void){
         if(ros::ok() == false || this->user_quit_ == true) break;
         this->trials_keep_.push_back(this->trial_ok_);
 
+        // Close sound feedback
+        this->closeAudioDevice();
+
         // Inter trial interval
         this->hide_cue();
         this->reset();
@@ -447,6 +476,81 @@ void TrainingCVSA::bci_protocol(void){
     feedback_cvsa::Trials_to_keep msg;
     msg.trials_to_keep = this->trials_keep_;
     this->pub_trials_keep_.publish(msg);
+}
+
+std::vector<float> TrainingCVSA::normalize(std::vector<float>& input) {
+    std::vector<float> input_norm(input.size());
+    for(int i = 0; i < this->nclasses_; i++){
+        input_norm.at(i) = input.at(i) - 1.0f/this->nclasses_;
+        float ths = this->thresholds_.at(i) - 1.0f/this->nclasses_;
+        if(input_norm.at(i) < 0)
+            input_norm.at(i) = 0;
+        input_norm.at(i) = input_norm.at(i) / ths;
+    }
+
+    return input_norm;
+}
+
+void TrainingCVSA::fillAudioBuffer(int& idx_sampleAudio) {
+    size_t frameSize_audio = this->channels_audio_ * sizeof(short);
+    size_t sampleAudio = this->sampleRate_audio_/this->rate_;
+    size_t bufferAudioSize = sampleAudio * this->channels_audio_;
+    size_t idx_bufferAudio = 0;
+
+    //std::vector<float> input_norm = this->normalize(this->current_input_);
+    std::vector<float> input_norm = this->current_input_;
+
+    for(int i = 0; i < sampleAudio * this->channels_audio_; i += this->channels_audio_) {
+        for(int j = 0; j < this->channels_audio_; j++) {
+            this->buffer_audio_played_.at(i+j) = this->buffer_audio_full_.at(i+j+idx_sampleAudio*this->channels_audio_) * input_norm.at(j);   
+        }
+    }
+    idx_sampleAudio += sampleAudio;
+}
+
+void TrainingCVSA::loadWAVFile(const std::string& filename) {
+    SF_INFO sfInfo;
+    SNDFILE *file = sf_open(filename.c_str(), SFM_READ, &sfInfo);
+    if (!file) {
+        ROS_ERROR( "Error opening WAV file: " );
+        return;
+    }
+
+    this->channels_audio_ = sfInfo.channels;
+    this->sampleRate_audio_ = sfInfo.samplerate;
+
+    this->buffer_audio_full_.resize(sfInfo.frames * sfInfo.channels);
+    sf_read_short(file, this->buffer_audio_full_.data(), this->buffer_audio_full_.size());
+
+    sf_close(file);
+}
+
+void TrainingCVSA::openAudioDevice(){
+    ao_sample_format aoFormat;
+    int defaultDriver;
+
+    // Initialize libao
+    ao_initialize();
+    defaultDriver = ao_default_driver_id();
+
+    // Set format
+    aoFormat.bits = 16;
+    aoFormat.channels = this->channels_audio_;
+    aoFormat.rate = this->sampleRate_audio_;
+    aoFormat.byte_format = AO_FMT_NATIVE;
+    aoFormat.matrix = nullptr;
+
+    // Open device
+    this->device_audio_ = ao_open_live(defaultDriver, &aoFormat, nullptr);
+    if (this->device_audio_ == nullptr) {
+        ROS_ERROR("Error opening device audio.");
+        return;
+    }
+}
+
+void TrainingCVSA::closeAudioDevice(void) {
+    ao_close(this->device_audio_);
+    ao_shutdown();
 }
 
 void TrainingCVSA::setevent(int event) {

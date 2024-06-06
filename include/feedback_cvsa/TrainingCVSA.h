@@ -22,6 +22,12 @@
 
 #include <rosneuro_feedback_wheel/Autopilot.h>
 
+#include <numeric>
+#include <algorithm>
+
+#include <sndfile.h>
+#include <ao/ao.h>
+
 
 namespace feedback {
 
@@ -79,9 +85,14 @@ class TrainingCVSA : public CVSA_layout {
         void on_received_data(const rosneuro_msgs::NeuroOutput& msg);
         void on_request_reconfigure(config_cvsa &config, uint32_t level);
         bool on_repeat_trial(feedback_cvsa::Repeat_trial::Request &req, feedback_cvsa::Repeat_trial::Response &res);
+        void loadWAVFile(const std::string& filename);
+        void openAudioDevice(void);
+        void closeAudioDevice(void);
+        void fillAudioBuffer(int& idx_sampleAudio);
 
     private:
         std::vector<std::vector<float>> str2matrix(const std::string& str);
+        std::vector<float> normalize(std::vector<float>& input);
 
     private:
         ros::NodeHandle nh_;
@@ -110,7 +121,6 @@ class TrainingCVSA : public CVSA_layout {
         neurochrono::timer_msecs timer_;
 
         std::vector<float> current_input_;
-        bool has_new_input_;
         const float rate_ = 100.0f;
         bool show_on_rest_;
         std::vector<float> thresholds_;
@@ -123,6 +133,12 @@ class TrainingCVSA : public CVSA_layout {
         dyncfg_cvsa recfg_srv_;
         dyncfg_cvsa::CallbackType recfg_callback_type_;
 
+        // feedback audio
+        int channels_audio_;
+        int sampleRate_audio_;
+        std::vector<short> buffer_audio_full_;
+        std::vector<short> buffer_audio_played_;
+        ao_device *device_audio_;
 };
 
 

@@ -20,6 +20,12 @@ find_path(NEURODRAW_INCLUDE_DIRS neurodraw/Shape.h REQUIRED)
 find_library(NEUROCHRONO_LIBRARIES neurochrono REQUIRED)
 find_path(NEUROCHRONO_INCLUDE_DIRS neurochrono/Timer.h REQUIRED)
 
+find_path(SNDFILE_INCLUDE_DIR NAMES sndfile.h)
+find_library(SNDFILE_LIBRARY NAMES sndfile)
+
+find_path(AO_INCLUDE_DIR NAMES ao/ao.h)
+find_library(AO_LIBRARY NAMES ao)
+
 generate_dynamic_reconfigure_options(
   cfg/CVSA.cfg
 )
@@ -62,6 +68,8 @@ include_directories(include
                     ${catkin_INCLUDE_DIRS}
                     ${NEURODRAW_INCLUDE_DIRS}
                     ${NEUROCHRONO_INCLUDE_DIRS}
+                    ${AO_INCLUDE_DIRS}
+                    ${SNDFILE_INCLUDE_DIRS}
                     )
 
 add_library(${PROJECT_NAME}    
@@ -75,6 +83,8 @@ target_link_libraries(${PROJECT_NAME}
                       ${catkin_LIBRARIES}
                       ${NEURODRAW_LIBRARIES}
                       ${NEUROCHRONO_LIBRARIES}
+                      ${SNDFILE_LIBRARY}
+                      ${AO_LIBRARY}
                       )
 
 add_dependencies(${PROJECT_NAME} 
@@ -90,6 +100,8 @@ target_link_libraries(trainingCVSA_node  ${PROJECT_NAME}
                                     ${catkin_LIBRARIES}
                                     ${NEURODRAW_LIBRARIES}
                                     ${NEUROCHRONO_LIBRARIES}
+                                    ${SNDFILE_LIBRARY}
+                                    ${AO_LIBRARY}
                                     )
 add_executable(controlCVSA_node src/controlCVSA_node.cpp)
 target_link_libraries(controlCVSA_node ${PROJECT_NAME}
