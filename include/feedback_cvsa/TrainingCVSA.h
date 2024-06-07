@@ -88,7 +88,7 @@ class TrainingCVSA : public CVSA_layout {
         void loadWAVFile(const std::string& filename);
         void openAudioDevice(void);
         void closeAudioDevice(void);
-        void fillAudioBuffer(int& idx_sampleAudio);
+        void fillAudioBuffer(int& idx_sampleAudio, const size_t& sampleAudio);
 
     private:
         std::vector<std::vector<float>> str2matrix(const std::string& str);

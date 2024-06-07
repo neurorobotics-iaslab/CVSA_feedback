@@ -87,6 +87,9 @@ bool TrainingCVSA::configure(void) {
         return false;
     }
     this->loadWAVFile(audio_path);
+    if(this->nclasses_ != this->channels_audio_) {
+        ROS_WARN("The number of classes (%d) is different of the number of channels of the audio feedback (%d)", this->nclasses_, this->channels_audio_);
+    }
 
     /* PARAMETER FOR THE EYE*/
     // Getting do or not eye calibration
@@ -399,6 +402,7 @@ void TrainingCVSA::bci_protocol(void){
         size_t bufferAudioSize = sampleAudio * this->channels_audio_;
         this->buffer_audio_played_.resize(bufferAudioSize);
         int idx_sampleAudio = 0;
+        size_t n_sampleAudio = this->sampleRate_audio_/this->rate_;
 
         // Set up initial probabilities
         this->current_input_ = std::vector<float>(this->nclasses_, 1.0f/this->nclasses_);
@@ -406,15 +410,15 @@ void TrainingCVSA::bci_protocol(void){
         while(ros::ok() && this->user_quit_ == false && targethit == -1 && idx_sampleAudio < this->buffer_audio_full_.size()) {
 
             if(this->modality_ == Modality::Calibration) {
-                this->fillAudioBuffer(idx_sampleAudio);
+                this->fillAudioBuffer(idx_sampleAudio, n_sampleAudio);
                 ao_play(this->device_audio_, reinterpret_cast<char*>(this->buffer_audio_played_.data()), bufferAudioSize * sizeof(short));
                 this->current_input_[idx_class] = this->current_input_[idx_class] + autopilot->step();
                 for(auto it = idxs_classes_not_trial.begin(); it != idxs_classes_not_trial.end(); ++it) {
                     this->current_input_[*it] = (1.0f - this->current_input_[idx_class]) / (this->nclasses_ - 1);
                 }
-                
+                ROS_INFO("Probabilities: %f %f Thresholds: %f %f", this->current_input_[0], this->current_input_[1], this->thresholds_[0], this->thresholds_[1]);
             } else if(this->modality_ == Modality::Evaluation) {
-                this->fillAudioBuffer(idx_sampleAudio);
+                this->fillAudioBuffer(idx_sampleAudio, n_sampleAudio);
                 ao_play(this->device_audio_, reinterpret_cast<char*>(this->buffer_audio_played_.data()), bufferAudioSize * sizeof(short));
             }
             
@@ -491,21 +495,17 @@ std::vector<float> TrainingCVSA::normalize(std::vector<float>& input) {
     return input_norm;
 }
 
-void TrainingCVSA::fillAudioBuffer(int& idx_sampleAudio) {
-    size_t frameSize_audio = this->channels_audio_ * sizeof(short);
-    size_t sampleAudio = this->sampleRate_audio_/this->rate_;
-    size_t bufferAudioSize = sampleAudio * this->channels_audio_;
-    size_t idx_bufferAudio = 0;
+void TrainingCVSA::fillAudioBuffer(int& idx_sampleAudio, const size_t& n_sampleAudio) {
 
     //std::vector<float> input_norm = this->normalize(this->current_input_);
     std::vector<float> input_norm = this->current_input_;
 
-    for(int i = 0; i < sampleAudio * this->channels_audio_; i += this->channels_audio_) {
+    for(int i = 0; i < n_sampleAudio * this->channels_audio_; i += this->channels_audio_) {
         for(int j = 0; j < this->channels_audio_; j++) {
             this->buffer_audio_played_.at(i+j) = this->buffer_audio_full_.at(i+j+idx_sampleAudio*this->channels_audio_) * input_norm.at(j);   
         }
     }
-    idx_sampleAudio += sampleAudio;
+    idx_sampleAudio += n_sampleAudio;
 }
 
 void TrainingCVSA::loadWAVFile(const std::string& filename) {
@@ -569,12 +569,12 @@ int TrainingCVSA::is_target_hit(std::vector<float> input, int elapsed, int durat
     int target = -1;
 
     for(int i = 0; i < this->nclasses_; i++) {
-        if(elapsed >= duration) {
-            target = CuePalette.size()-1;
-            ROS_INFO("Timeout");
-        }else if(input.at(i) >= this->thresholds_[i]) {
+        if(input.at(i) >= this->thresholds_[i]) {
             target = i;
             break;
+        } else if(elapsed >= duration) {
+            target = CuePalette.size()-1;
+            ROS_INFO("Timeout");
         }
     }
     

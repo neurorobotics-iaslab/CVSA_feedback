@@ -8,7 +8,7 @@
 		<arg name="trials"           default='[5, 5]'/>
 		<arg name="circlePositions"  default="-1.3 -0.75; 1.3 -0.75"/>
 		<!--arg name="circlePositions"  default="-1.3 -0.75; 1.3 -0.75; 0.0 0.8"/-->
-		<arg name="audio_path"       default="/home/paolo/Scaricati/beep-05.wav"/>
+		<arg name="audio_path"       default="/home/paolo/Scaricati/b.wav"/>
 
 	<!-- Eye calibration online arguments -->
 		<arg name="eye_calibration"    default='False'/> <!-- if false the node will not start -->
