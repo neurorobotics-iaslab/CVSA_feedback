@@ -6,7 +6,7 @@ namespace feedback {
 TrainingCVSA::TrainingCVSA(void) : CVSA_layout("trainingCVSA"), p_nh_("~") {
 
     this->pub_ = this->nh_.advertise<rosneuro_msgs::NeuroEvent>("events/bus", 1);
-    this->sub_ = this->nh_.subscribe("integrator/neuroprediction", 1, &TrainingCVSA::on_received_data, this);
+    this->sub_ = this->nh_.subscribe("cvsa/neuroprediction/integrated", 1, &TrainingCVSA::on_received_data, this);
     this->srv_camera_ready_ = this->nh_.serviceClient<std_srvs::Trigger>("cvsa/camera_ready");
 }
 
@@ -139,7 +139,7 @@ bool TrainingCVSA::configure(void) {
     ros::param::param("~duration/feedback_min",     this->duration_.feedback_min,      4000);
     ros::param::param("~duration/feedback_max",     this->duration_.feedback_max,      5500);
     ros::param::param("~duration/boom",             this->duration_.boom,              1000);
-    ros::param::param("~duration/timeout",          this->duration_.timeout,          10000);
+    ros::param::param("~duration/timeout",          this->duration_.timeout,           5000);
     ros::param::param("~duration/iti",              this->duration_.iti,                100);
     ros::param::param("~duration/end",              this->duration_.end,               2000);
     ros::param::param("~duration/calibration",      this->duration_.calibration,       2000);
@@ -239,6 +239,8 @@ void TrainingCVSA::on_received_data(const rosneuro_msgs::NeuroOutput& msg) {
 
     // Set the new incoming data
     this->current_input_ = msg.softpredict.data;
+
+    std::cout << "Received data: " << this->current_input_[0] << " " << this->current_input_[1] << std::endl;
         
 }
 
@@ -420,6 +422,7 @@ void TrainingCVSA::bci_protocol(void){
             } else if(this->modality_ == Modality::Evaluation) {
                 this->fillAudioBuffer(idx_sampleAudio, n_sampleAudio);
                 ao_play(this->device_audio_, reinterpret_cast<char*>(this->buffer_audio_played_.data()), bufferAudioSize * sizeof(short));
+                //ROS_INFO("Probabilities: %f %f Thresholds: %f %f", this->current_input_[0], this->current_input_[1], this->thresholds_[0], this->thresholds_[1]);
             }
             
             targethit = this->is_target_hit(this->current_input_,  
