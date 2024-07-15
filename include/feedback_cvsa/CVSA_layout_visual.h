@@ -23,11 +23,11 @@ const std::array<neurodraw::Color, 5> CuePalette {
         neurodraw::Palette::yellow // for timeout
 };
 
-class CVSA_layout {
+class CVSA_layout_visual {
 
     public:
-        CVSA_layout(const std::string& wintitle = "cvsa");
-        virtual ~CVSA_layout(void);
+        CVSA_layout_visual(const std::string& wintitle = "cvsa");
+        virtual ~CVSA_layout_visual(void);
 
         void setup(void);
         void reset(void);
@@ -40,17 +40,20 @@ class CVSA_layout {
         void show_rings_classes(void);
         void show_cue(int index);
         void show_boom(int idx_position, int idx_color);
+        void show_circle_feedback(void);
         void hide_fixation(void);
         void hide_calibration(void);
         void hide_center(void);
         void hide_cue(void);
         void hide_boom(void);
+        void hide_circle_feedback(void);
         
         virtual bool configure(void) = 0;
         virtual void run(void) = 0;
 
     protected:
         virtual void on_keyboard_event(const neurodraw::KeyboardEvent& event);
+        void circle_feedback_update(std::vector<float> radius);
         
 
     protected:
@@ -67,6 +70,7 @@ class CVSA_layout {
         int              nclasses_;
         bool             user_quit_;
         std::vector<std::vector<float>> circlePositions_;
+        std::vector<neurodraw::Circle*>  feedback_circles_; 
         
 
 };

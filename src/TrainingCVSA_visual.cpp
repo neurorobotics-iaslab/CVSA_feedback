@@ -1,21 +1,21 @@
-#include "feedback_cvsa/TrainingCVSA.h"
+#include "feedback_cvsa/TrainingCVSA_visual.h"
 
 
 namespace feedback {
 
-TrainingCVSA::TrainingCVSA(void) : CVSA_layout("trainingCVSA"), p_nh_("~") {
+TrainingCVSA_visual::TrainingCVSA_visual(void) : CVSA_layout_visual("trainingCVSA_visual"), p_nh_("~") {
 
     this->pub_ = this->nh_.advertise<rosneuro_msgs::NeuroEvent>("events/bus", 1);
-    this->sub_ = this->nh_.subscribe("cvsa/neuroprediction/integrated", 1, &TrainingCVSA::on_received_data, this);
+    this->sub_ = this->nh_.subscribe("cvsa/neuroprediction/integrated", 1, &TrainingCVSA_visual::on_received_data, this);
     this->srv_camera_ready_ = this->nh_.serviceClient<std_srvs::Trigger>("cvsa/camera_ready");
 }
 
-TrainingCVSA::~TrainingCVSA(void) {}
+TrainingCVSA_visual::~TrainingCVSA_visual(void) {}
 
-bool TrainingCVSA::configure(void) {
+bool TrainingCVSA_visual::configure(void) {
 
     /* Bind dynamic reconfigure callback */
-    this->recfg_callback_type_ = boost::bind(&TrainingCVSA::on_request_reconfigure, this, _1, _2);
+    this->recfg_callback_type_ = boost::bind(&TrainingCVSA_visual::on_request_reconfigure, this, _1, _2);
     this->recfg_srv_.setCallback(this->recfg_callback_type_);
 
     std::string modality;
@@ -40,8 +40,8 @@ bool TrainingCVSA::configure(void) {
         ROS_ERROR("Parameter 'circlePositions' is mandatory");
         return false;
     }
-    
-    // set up the windows layout
+
+    // set up the windows layout for the feedback
 	this->setup();
 
 
@@ -79,22 +79,6 @@ bool TrainingCVSA::configure(void) {
         return false;
     }
 
-    /* PARAMETER FOR THE SOUND FEEDBACK*/
-    // Getting parameters for audio feedback
-    std::string audio_path;
-    if(this->p_nh_.getParam("audio_path", audio_path) == false) {
-        ROS_ERROR("Parameter 'audio_feedback' is mandatory");
-        return false;
-    }
-    this->loadWAVFile(audio_path);
-    if(this->nclasses_ != this->channels_audio_) {
-        ROS_WARN("The number of classes (%d) is different of the number of channels of the audio feedback (%d)", this->nclasses_, this->channels_audio_);
-    }
-
-    /* PARAMETER FOR POSITIVE FEEDBACK*/
-    this->p_nh_.getParam("positive_feedback", this->positive_feedback_);
-    ROS_WARN("Positive feedback is %s", this->positive_feedback_ ? "enabled" : "disabled");
-
     /* PARAMETER FOR THE EYE*/
     // Getting do or not eye calibration
     if(this->p_nh_.getParam("eye_calibration", this->eye_calibration_) == false) {
@@ -131,7 +115,7 @@ bool TrainingCVSA::configure(void) {
                 }
             }
         }
-        this->srv_repeat_trial_ = this->nh_.advertiseService("cvsa/repeat_trial", &TrainingCVSA::on_repeat_trial, this);
+        this->srv_repeat_trial_ = this->nh_.advertiseService("cvsa/repeat_trial", &TrainingCVSA_visual::on_repeat_trial, this);
         this->pub_trials_keep_ = this->nh_.advertise<feedback_cvsa::Trials_to_keep>("cvsa/trials_keep", 1);
     }
 
@@ -170,7 +154,7 @@ bool TrainingCVSA::configure(void) {
 
 }
 
-int TrainingCVSA::class2direction(int eventcue) {
+int TrainingCVSA_visual::class2direction(int eventcue) {
 
     auto it = find(this->classes_.begin(), this->classes_.end(), eventcue);
     
@@ -180,7 +164,7 @@ int TrainingCVSA::class2direction(int eventcue) {
     return -1;
 }
 
-int TrainingCVSA::class2index(int eventcue) {
+int TrainingCVSA_visual::class2index(int eventcue) {
 
     auto it = find(this->classes_.begin(), this->classes_.end(), eventcue);
     int idx = -1;
@@ -194,7 +178,7 @@ int TrainingCVSA::class2index(int eventcue) {
     return idx;
 }
 
-float TrainingCVSA::direction2threshold(int index) {
+float TrainingCVSA_visual::direction2threshold(int index) {
 
 	if(index != -1) {
 		return this->thresholds_[index];
@@ -204,7 +188,7 @@ float TrainingCVSA::direction2threshold(int index) {
 	}
 }
 
-std::vector<std::vector<float>> TrainingCVSA::str2matrix(const std::string& str) {
+std::vector<std::vector<float>> TrainingCVSA_visual::str2matrix(const std::string& str) {
     std::vector<std::vector<float>> matrix;
     std::istringstream iss(str);
     std::string row_str;
@@ -221,7 +205,7 @@ std::vector<std::vector<float>> TrainingCVSA::str2matrix(const std::string& str)
     return matrix;
 }
 
-void TrainingCVSA::on_received_data(const rosneuro_msgs::NeuroOutput& msg) {
+void TrainingCVSA_visual::on_received_data(const rosneuro_msgs::NeuroOutput& msg) {
 
     // Check if the incoming message has the provided classes
     bool class_not_found = false;
@@ -248,7 +232,7 @@ void TrainingCVSA::on_received_data(const rosneuro_msgs::NeuroOutput& msg) {
         
 }
 
-bool TrainingCVSA::on_repeat_trial(feedback_cvsa::Repeat_trial::Request &req, feedback_cvsa::Repeat_trial::Response &res) {
+bool TrainingCVSA_visual::on_repeat_trial(feedback_cvsa::Repeat_trial::Request &req, feedback_cvsa::Repeat_trial::Response &res) {
     this->trial_ok_ = 0;
     int class2repeat = req.class2repeat;
     auto it = std::find(this->classes_.begin(), this->classes_.end(), class2repeat);
@@ -269,31 +253,37 @@ bool TrainingCVSA::on_repeat_trial(feedback_cvsa::Repeat_trial::Request &req, fe
 }
 
 
-void TrainingCVSA::run(void) {
+void TrainingCVSA_visual::run(void) {
 
     this->srv_camera_ready_.waitForExistence();
     std_srvs::Trigger srv = std_srvs::Trigger();
 
-    while(true){
-        this->srv_camera_ready_.call(srv.request, srv.response);
+    while(this->srv_camera_ready_.call(srv.request, srv.response)){
         if(srv.response.success == false) {
             ROS_WARN_ONCE("Camera is not ready");
         }else{
-            if(this->eye_calibration_){
-                ROS_INFO("Calibration eye started");
-                this->eye_calibration();
-            }
-
-            ROS_INFO("Protocol BCI started");
-            this->show_rings_classes(); // show the rings of each class in the drawing window
-            this->bci_protocol();
             break;
         }
     }
     
+    ROS_INFO("Camera is ready");
+    if(this->eye_calibration_){
+        ROS_INFO("Calibration eye started");
+        this->eye_calibration();
+    }
+
+    ROS_INFO("Protocol BCI started");
+    // show the rings and the center of the feedback of each class in the drawing window
+    this->show_rings_classes();
+    this->hide_circle_feedback();
+    std::vector<float> radius = this->input2radius(std::vector<float>(this->nclasses_, 1.0f/this->nclasses_));
+    this->circle_feedback_update(radius);
+    this->show_circle_feedback();
+    this->bci_protocol();
+
 }
 
-void TrainingCVSA::eye_calibration(void) {
+void TrainingCVSA_visual::eye_calibration(void) {
 
     this->sleep(this->duration_.begin);
     this->show_fixation();
@@ -327,7 +317,7 @@ void TrainingCVSA::eye_calibration(void) {
     
 }
 
-void TrainingCVSA::bci_protocol(void){
+void TrainingCVSA_visual::bci_protocol(void){
     int       trialnumber;
     int       trialclass;
     int       trialduration;
@@ -402,39 +392,26 @@ void TrainingCVSA::bci_protocol(void){
         this->setevent(Events::CFeedback);
         this->show_center();
 
-        // Start the sound feedback
-        this->openAudioDevice();
-        size_t sampleAudio = this->sampleRate_audio_/this->rate_;
-        size_t bufferAudioSize = sampleAudio * this->channels_audio_;
-        this->buffer_audio_played_.resize(bufferAudioSize);
-        int idx_sampleAudio = 0;
-        size_t n_sampleAudio = this->sampleRate_audio_/this->rate_;
-
         // Set up initial probabilities
         this->current_input_ = std::vector<float>(this->nclasses_, 1.0f/this->nclasses_);
 
-        while(ros::ok() && this->user_quit_ == false && targethit == -1 && idx_sampleAudio < this->buffer_audio_full_.size()) {
+        while(ros::ok() && this->user_quit_ == false && targethit == -1) {
 
             if(this->modality_ == Modality::Calibration) {
-                this->fillAudioBuffer(idx_sampleAudio, n_sampleAudio);
-                ao_play(this->device_audio_, reinterpret_cast<char*>(this->buffer_audio_played_.data()), bufferAudioSize * sizeof(short));
+                // this->hide_circle_feedback();
+                std::vector<float> radius = this->input2radius(this->current_input_);
+                this->circle_feedback_update(radius);
+                // this->show_circle_feedback();
                 this->current_input_[idx_class] = this->current_input_[idx_class] + autopilot->step();
                 for(auto it = idxs_classes_not_trial.begin(); it != idxs_classes_not_trial.end(); ++it) {
                     this->current_input_[*it] = (1.0f - this->current_input_[idx_class]) / (this->nclasses_ - 1);
                 }
                 //ROS_INFO("Probabilities: %f %f Thresholds: %f %f", this->current_input_[0], this->current_input_[1], this->thresholds_[0], this->thresholds_[1]);
             } else if(this->modality_ == Modality::Evaluation) {
-                if(!this->positive_feedback_){
-                    this->fillAudioBuffer(idx_sampleAudio, n_sampleAudio);
-                    ao_play(this->device_audio_, reinterpret_cast<char*>(this->buffer_audio_played_.data()), bufferAudioSize * sizeof(short));
-                }else{
-                    auto maxElemIter = std::max_element(this->current_input_.begin(), this->current_input_.end());
-                    int idx_maxElem = std::distance(this->current_input_.begin(), maxElemIter);
-                    if(idx_maxElem == idx_class){
-                        this->fillAudioBuffer(idx_sampleAudio, n_sampleAudio);
-                        ao_play(this->device_audio_, reinterpret_cast<char*>(this->buffer_audio_played_.data()), bufferAudioSize * sizeof(short));
-                    }
-                }
+                this->hide_circle_feedback();
+                std::vector<float> radius = this->input2radius(this->current_input_);
+                this->circle_feedback_update(radius);
+                this->show_circle_feedback();
                 //ROS_INFO("Probabilities: %f %f Thresholds: %f %f", this->current_input_[0], this->current_input_[1], this->thresholds_[0], this->thresholds_[1]);
             }
             
@@ -472,12 +449,14 @@ void TrainingCVSA::bci_protocol(void){
                 break;
         }
 
+        // Set back the visual feedback
+        this->hide_circle_feedback();
+        std::vector<float> radius = this->input2radius(std::vector<float>(this->nclasses_, 1.0f/this->nclasses_));
+        this->circle_feedback_update(radius);
+        this->show_circle_feedback();
 
         if(ros::ok() == false || this->user_quit_ == true) break;
         this->trials_keep_.push_back(this->trial_ok_);
-
-        // Close sound feedback
-        this->closeAudioDevice();
 
         // Inter trial interval
         this->hide_cue();
@@ -498,7 +477,7 @@ void TrainingCVSA::bci_protocol(void){
     this->pub_trials_keep_.publish(msg);
 }
 
-std::vector<float> TrainingCVSA::normalize(std::vector<float>& input) {
+std::vector<float> TrainingCVSA_visual::normalize(std::vector<float>& input) {
     std::vector<float> input_norm(input.size());
     for(int i = 0; i < this->nclasses_; i++){
         input_norm.at(i) = input.at(i) - 1.0f/this->nclasses_;
@@ -511,81 +490,24 @@ std::vector<float> TrainingCVSA::normalize(std::vector<float>& input) {
     return input_norm;
 }
 
-void TrainingCVSA::fillAudioBuffer(int& idx_sampleAudio, const size_t& n_sampleAudio) {
-
-    //std::vector<float> input_norm = this->normalize(this->current_input_);
-    std::vector<float> input_norm = this->current_input_;
-
-    for(int i = 0; i < n_sampleAudio * this->channels_audio_; i += this->channels_audio_) {
-        for(int j = 0; j < this->channels_audio_; j++) {
-            this->buffer_audio_played_.at(i+j) = this->buffer_audio_full_.at(i+j+idx_sampleAudio*this->channels_audio_) * input_norm.at(j);   
-        }
-    }
-    idx_sampleAudio += n_sampleAudio;
-}
-
-void TrainingCVSA::loadWAVFile(const std::string& filename) {
-    SF_INFO sfInfo;
-    SNDFILE *file = sf_open(filename.c_str(), SFM_READ, &sfInfo);
-    if (!file) {
-        ROS_ERROR( "Error opening WAV file: " );
-        return;
-    }
-
-    this->channels_audio_ = sfInfo.channels;
-    this->sampleRate_audio_ = sfInfo.samplerate;
-
-    this->buffer_audio_full_.resize(sfInfo.frames * sfInfo.channels);
-    sf_read_short(file, this->buffer_audio_full_.data(), this->buffer_audio_full_.size());
-
-    sf_close(file);
-}
-
-void TrainingCVSA::openAudioDevice(){
-    ao_sample_format aoFormat;
-    int defaultDriver;
-
-    // Initialize libao
-    ao_initialize();
-    defaultDriver = ao_default_driver_id();
-
-    // Set format
-    aoFormat.bits = 16;
-    aoFormat.channels = this->channels_audio_;
-    aoFormat.rate = this->sampleRate_audio_;
-    aoFormat.byte_format = AO_FMT_NATIVE;
-    aoFormat.matrix = nullptr;
-
-    // Open device
-    this->device_audio_ = ao_open_live(defaultDriver, &aoFormat, nullptr);
-    if (this->device_audio_ == nullptr) {
-        ROS_ERROR("Error opening device audio.");
-        return;
-    }
-}
-
-void TrainingCVSA::closeAudioDevice(void) {
-    ao_close(this->device_audio_);
-    ao_shutdown();
-}
-
-void TrainingCVSA::setevent(int event) {
+void TrainingCVSA_visual::setevent(int event) {
 
     this->event_msg_.header.stamp = ros::Time::now();
     this->event_msg_.event = event;
     this->pub_.publish(this->event_msg_);
 }
 
-void TrainingCVSA::sleep(int msecs) {
+void TrainingCVSA_visual::sleep(int msecs) {
     std::this_thread::sleep_for(std::chrono::milliseconds(msecs));
 }
 
-int TrainingCVSA::is_target_hit(std::vector<float> input, int elapsed, int duration) {
+int TrainingCVSA_visual::is_target_hit(std::vector<float> input, int elapsed, int duration) {
 
     int target = -1;
+    double epsilon = 0.00001;
 
     for(int i = 0; i < this->nclasses_; i++) {
-        if(input.at(i) >= this->thresholds_[i]) {
+        if(input.at(i) >= this->thresholds_[i] - epsilon) {
             target = i;
             break;
         } else if(elapsed >= duration) {
@@ -597,7 +519,23 @@ int TrainingCVSA::is_target_hit(std::vector<float> input, int elapsed, int durat
     return target;
 }
 
-void TrainingCVSA::on_request_reconfigure(config_cvsa &config, uint32_t level) {
+std::vector<float> TrainingCVSA_visual::input2radius(std::vector<float> inputs) {
+    int n = inputs.size();
+    std::vector<float> radius(n, 0.0f);
+    for(int i = 0; i < n; i++){
+        float c_input = inputs.at(i);
+        if(c_input >= 0.0f && c_input <= 1.0f) {
+            radius.at(i) = c_input * (0.15f - 0.03f); // radius ring - tickness ring
+        } else {
+            ROS_WARN("Input %d value out of range [0,1]", i);
+        }
+    }
+    
+	return radius;
+}
+
+
+void TrainingCVSA_visual::on_request_reconfigure(config_cvsa &config, uint32_t level) {
 
     switch (this->nclasses_)
     {

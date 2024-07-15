@@ -16,7 +16,7 @@
 #include <rosneuro_msgs/NeuroOutput.h>
 #include <neurochrono/Timer.h>
 
-#include "feedback_cvsa/CVSA_layout.h"
+#include "feedback_cvsa/CVSA_layout_visual.h"
 #include "feedback_cvsa/TrialSequence.h"
 
 
@@ -25,8 +25,8 @@
 #include <numeric>
 #include <algorithm>
 
-#include <sndfile.h>
-#include <ao/ao.h>
+// visual feedback
+#include <neurodraw/Circle.h>
 
 
 namespace feedback {
@@ -61,14 +61,14 @@ struct Duration {
 using config_cvsa          = feedback_cvsa::CVSAConfig;
 using dyncfg_cvsa          = dynamic_reconfigure::Server<config_cvsa>;
 
-class TrainingCVSA : public CVSA_layout {
+class TrainingCVSA_visual : public CVSA_layout_visual {
 
     public:
         enum class Modality {Calibration = 0, Evaluation};
 
     public:
-        TrainingCVSA(void);
-        virtual ~TrainingCVSA(void);
+        TrainingCVSA_visual(void);
+        virtual ~TrainingCVSA_visual(void);
 
         virtual bool configure(void);
         virtual void run(void);
@@ -85,10 +85,7 @@ class TrainingCVSA : public CVSA_layout {
         void on_received_data(const rosneuro_msgs::NeuroOutput& msg);
         void on_request_reconfigure(config_cvsa &config, uint32_t level);
         bool on_repeat_trial(feedback_cvsa::Repeat_trial::Request &req, feedback_cvsa::Repeat_trial::Response &res);
-        void loadWAVFile(const std::string& filename);
-        void openAudioDevice(void);
-        void closeAudioDevice(void);
-        void fillAudioBuffer(int& idx_sampleAudio, const size_t& sampleAudio);
+        std::vector<float>  input2radius(std::vector<float>  input);
 
     private:
         std::vector<std::vector<float>> str2matrix(const std::string& str);
@@ -132,16 +129,6 @@ class TrainingCVSA : public CVSA_layout {
 
         dyncfg_cvsa recfg_srv_;
         dyncfg_cvsa::CallbackType recfg_callback_type_;
-
-        // feedback audio
-        int channels_audio_;
-        int sampleRate_audio_;
-        std::vector<short> buffer_audio_full_;
-        std::vector<short> buffer_audio_played_;
-        ao_device *device_audio_;
-
-        // for positive feedback
-        bool positive_feedback_ = false;
 };
 
 

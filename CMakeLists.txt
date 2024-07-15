@@ -15,7 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
              )
 
 find_library(NEURODRAW_LIBRARIES neurodraw REQUIRED)
-find_path(NEURODRAW_INCLUDE_DIRS neurodraw/Shape.h REQUIRED)
+find_path(NEURODRAW_INCLUDE_DIRS neurodraw/Shape.h REQUIRED) 
 
 find_library(NEUROCHRONO_LIBRARIES neurochrono REQUIRED)
 find_path(NEUROCHRONO_INCLUDE_DIRS neurochrono/Timer.h REQUIRED)
@@ -74,9 +74,11 @@ include_directories(include
 
 add_library(${PROJECT_NAME}    
             src/CVSA_layout.cpp
+            src/CVSA_layout_visual.cpp
             src/TrainingCVSA.cpp
             src/ControlCVSA.cpp
             src/TrialSequence.cpp
+            src/TrainingCVSA_visual.cpp
             )
 
 target_link_libraries(${PROJECT_NAME} 
@@ -105,6 +107,13 @@ target_link_libraries(trainingCVSA_node  ${PROJECT_NAME}
                                     )
 add_executable(controlCVSA_node src/controlCVSA_node.cpp)
 target_link_libraries(controlCVSA_node ${PROJECT_NAME}
+                                   ${catkin_LIBRARIES}
+                                   ${NEURODRAW_LIBRARIES}
+                                   ${NEUROCHRONO_LIBRARIES}
+                                   )
+
+add_executable(trainingCVSA_visual_node src/trainingCVSA_visual_node.cpp)
+target_link_libraries(trainingCVSA_visual_node ${PROJECT_NAME}
                                    ${catkin_LIBRARIES}
                                    ${NEURODRAW_LIBRARIES}
                                    ${NEUROCHRONO_LIBRARIES}
