@@ -129,6 +129,9 @@ class TrainingCVSA_visual : public CVSA_layout_visual {
 
         dyncfg_cvsa recfg_srv_;
         dyncfg_cvsa::CallbackType recfg_callback_type_;
+
+        // for positive feedback
+        bool positive_feedback_ = false;
 };
 
 

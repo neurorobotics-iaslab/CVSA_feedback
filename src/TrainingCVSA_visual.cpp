@@ -79,6 +79,10 @@ bool TrainingCVSA_visual::configure(void) {
         return false;
     }
 
+    /* PARAMETER FOR POSITIVE FEEDBACK*/
+    this->p_nh_.getParam("positive_feedback", this->positive_feedback_);
+    ROS_WARN("Positive feedback is %s", this->positive_feedback_ ? "enabled" : "disabled");
+
     /* PARAMETER FOR THE EYE*/
     // Getting do or not eye calibration
     if(this->p_nh_.getParam("eye_calibration", this->eye_calibration_) == false) {
@@ -407,10 +411,21 @@ void TrainingCVSA_visual::bci_protocol(void){
                 }
                 //ROS_INFO("Probabilities: %f %f Thresholds: %f %f", this->current_input_[0], this->current_input_[1], this->thresholds_[0], this->thresholds_[1]);
             } else if(this->modality_ == Modality::Evaluation) {
-                this->hide_circle_feedback();
-                std::vector<float> radius = this->input2radius(this->current_input_);
-                this->circle_feedback_update(radius);
-                this->show_circle_feedback();
+                if(!this->positive_feedback_){
+                    this->hide_circle_feedback();
+                    std::vector<float> radius = this->input2radius(this->current_input_);
+                    this->circle_feedback_update(radius);
+                    this->show_circle_feedback();
+                }else{
+                    auto maxElemIter = std::max_element(this->current_input_.begin(), this->current_input_.end());
+                    int idx_maxElem = std::distance(this->current_input_.begin(), maxElemIter);
+                    if(idx_maxElem == idx_class){
+                        this->hide_circle_feedback();
+                        std::vector<float> radius = this->input2radius(this->current_input_);
+                        this->circle_feedback_update(radius);
+                        this->show_circle_feedback();
+                    }
+                }
                 //ROS_INFO("Probabilities: %f %f Thresholds: %f %f", this->current_input_[0], this->current_input_[1], this->thresholds_[0], this->thresholds_[1]);
             }
             

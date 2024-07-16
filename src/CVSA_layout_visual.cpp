@@ -120,7 +120,7 @@ void CVSA_layout_visual::show_boom(int idx_position, int idx_color) {
         ROS_WARN("Unknown color required. Boom position is not set");
         return;
     }
-    this->circle_->move(this->circlePositions_.at(idx_color).at(0), this->circlePositions_.at(idx_color).at(1));
+    this->circle_->move(this->circlePositions_.at(idx_position).at(0), this->circlePositions_.at(idx_position).at(1));
     this->circle_->set_color(CuePalette.at(idx_color));
     
     this->circle_->show();
