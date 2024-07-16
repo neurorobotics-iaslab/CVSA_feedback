@@ -227,8 +227,6 @@ void TrainingCVSA_visual::on_received_data(const rosneuro_msgs::NeuroOutput& msg
 
     // Set the new incoming data
     this->current_input_ = msg.softpredict.data;
-
-    //std::cout << "Received data: " << this->current_input_[0] << " " << this->current_input_[1] << std::endl;
         
 }
 
@@ -276,7 +274,7 @@ void TrainingCVSA_visual::run(void) {
     // show the rings and the center of the feedback of each class in the drawing window
     this->show_rings_classes();
     this->hide_circle_feedback();
-    std::vector<float> radius = this->input2radius(std::vector<float>(this->nclasses_, 1.0f/this->nclasses_));
+    std::vector<float> radius = this->input2radius(std::vector<float>(this->nclasses_, 0.0f));
     this->circle_feedback_update(radius);
     this->show_circle_feedback();
     this->bci_protocol();
@@ -354,7 +352,7 @@ void TrainingCVSA_visual::bci_protocol(void){
 
         if(this->modality_ == Modality::Calibration) {
             autopilot = &linearpilot;
-            autopilot->set(1.0f/this->nclasses_, trialthreshold, trialduration); 
+            autopilot->set(0.0f, trialthreshold, trialduration); 
         }
 
         ROS_INFO("Trial %d/%d (class: %d | duration: %d ms)", trialnumber, this->trialsequence_.size(), trialclass, trialduration);
@@ -393,18 +391,19 @@ void TrainingCVSA_visual::bci_protocol(void){
         this->show_center();
 
         // Set up initial probabilities
-        this->current_input_ = std::vector<float>(this->nclasses_, 1.0f/this->nclasses_);
+        this->current_input_ = std::vector<float>(this->nclasses_, 0.0f);
 
         while(ros::ok() && this->user_quit_ == false && targethit == -1) {
 
             if(this->modality_ == Modality::Calibration) {
-                // this->hide_circle_feedback();
+                this->hide_circle_feedback();
                 std::vector<float> radius = this->input2radius(this->current_input_);
                 this->circle_feedback_update(radius);
-                // this->show_circle_feedback();
+                this->show_circle_feedback();
                 this->current_input_[idx_class] = this->current_input_[idx_class] + autopilot->step();
                 for(auto it = idxs_classes_not_trial.begin(); it != idxs_classes_not_trial.end(); ++it) {
-                    this->current_input_[*it] = (1.0f - this->current_input_[idx_class]) / (this->nclasses_ - 1);
+                    //this->current_input_[*it] = (1.0f - this->current_input_[idx_class]) / (this->nclasses_ - 1);
+                    this->current_input_[*it] = 0.0f;
                 }
                 //ROS_INFO("Probabilities: %f %f Thresholds: %f %f", this->current_input_[0], this->current_input_[1], this->thresholds_[0], this->thresholds_[1]);
             } else if(this->modality_ == Modality::Evaluation) {
@@ -451,7 +450,7 @@ void TrainingCVSA_visual::bci_protocol(void){
 
         // Set back the visual feedback
         this->hide_circle_feedback();
-        std::vector<float> radius = this->input2radius(std::vector<float>(this->nclasses_, 1.0f/this->nclasses_));
+        std::vector<float> radius = this->input2radius(std::vector<float>(this->nclasses_, 0.0f));
         this->circle_feedback_update(radius);
         this->show_circle_feedback();
 
