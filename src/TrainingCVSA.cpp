@@ -143,7 +143,7 @@ bool TrainingCVSA::configure(void) {
     ros::param::param("~duration/feedback_min",     this->duration_.feedback_min,      4000);
     ros::param::param("~duration/feedback_max",     this->duration_.feedback_max,      5500);
     ros::param::param("~duration/boom",             this->duration_.boom,              1000);
-    ros::param::param("~duration/timeout",          this->duration_.timeout,           5000);
+    ros::param::param("~duration/timeout",          this->duration_.timeout,          10000);
     ros::param::param("~duration/iti",              this->duration_.iti,                100);
     ros::param::param("~duration/end",              this->duration_.end,               2000);
     ros::param::param("~duration/calibration",      this->duration_.calibration,       2000);
@@ -411,7 +411,7 @@ void TrainingCVSA::bci_protocol(void){
         size_t n_sampleAudio = this->sampleRate_audio_/this->rate_;
 
         // Set up initial probabilities
-        this->current_input_ = std::vector<float>(this->nclasses_, 1.0f/this->nclasses_);
+        this->current_input_ = std::vector<float>(this->nclasses_, 0.0f) ; //std::vector<float>(this->nclasses_, 1.0f/this->nclasses_);
 
         while(ros::ok() && this->user_quit_ == false && targethit == -1 && idx_sampleAudio < this->buffer_audio_full_.size()) {
 
