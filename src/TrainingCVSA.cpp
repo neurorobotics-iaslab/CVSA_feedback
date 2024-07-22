@@ -364,7 +364,8 @@ void TrainingCVSA::bci_protocol(void){
 
         if(this->modality_ == Modality::Calibration) {
             autopilot = &linearpilot;
-            autopilot->set(1.0f/this->nclasses_, trialthreshold, trialduration); 
+            //autopilot->set(1.0f/this->nclasses_, trialthreshold, trialduration); 
+            autopilot->set(0.0f, trialthreshold, trialduration);
         }
 
         ROS_INFO("Trial %d/%d (class: %d | duration: %d ms)", trialnumber, this->trialsequence_.size(), trialclass, trialduration);
@@ -411,7 +412,8 @@ void TrainingCVSA::bci_protocol(void){
         size_t n_sampleAudio = this->sampleRate_audio_/this->rate_;
 
         // Set up initial probabilities
-        this->current_input_ = std::vector<float>(this->nclasses_, 0.0f) ; //std::vector<float>(this->nclasses_, 1.0f/this->nclasses_);
+        this->current_input_ = std::vector<float>(this->nclasses_, 0.0f) ; 
+        //this->current_input_ = std::vector<float>(this->nclasses_, 1.0f/this->nclasses_);
 
         while(ros::ok() && this->user_quit_ == false && targethit == -1 && idx_sampleAudio < this->buffer_audio_full_.size()) {
 
