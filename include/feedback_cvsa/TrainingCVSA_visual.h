@@ -20,7 +20,7 @@
 #include "feedback_cvsa/TrialSequence.h"
 
 
-#include <rosneuro_feedback_wheel/Autopilot.h>
+#include "feedback_cvsa/Autopilot.h"
 
 #include <numeric>
 #include <algorithm>

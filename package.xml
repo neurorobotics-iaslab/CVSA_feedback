@@ -17,7 +17,6 @@
 
   <depend>neurodraw</depend>
   <depend>rosneuro_msgs</depend>
-  <depend>rosneuro_feedback_wheel</depend>
   <depend>message_runtime</depend>
     
 </package>

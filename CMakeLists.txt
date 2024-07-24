@@ -10,7 +10,6 @@ find_package(catkin REQUIRED COMPONENTS
              std_srvs
              dynamic_reconfigure
              rosneuro_msgs
-             rosneuro_feedback_wheel
              message_generation
              )
 
@@ -53,7 +52,6 @@ catkin_package(
     roscpp
     std_msgs
     rosneuro_msgs
-    rosneuro_feedback_wheel
     message_runtime
     std_srvs
   DEPENDS
@@ -79,6 +77,7 @@ add_library(${PROJECT_NAME}
             src/ControlCVSA.cpp
             src/TrialSequence.cpp
             src/TrainingCVSA_visual.cpp
+            src/Autopilot.cpp
             )
 
 target_link_libraries(${PROJECT_NAME} 

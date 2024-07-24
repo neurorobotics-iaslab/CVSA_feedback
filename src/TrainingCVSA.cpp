@@ -92,8 +92,8 @@ bool TrainingCVSA::configure(void) {
     }
 
     /* PARAMETER FOR POSITIVE FEEDBACK*/
-    this->p_nh_.getParam("positive_feedback", this->positive_feedback_);
-    ROS_WARN("Positive feedback is %s", this->positive_feedback_ ? "enabled" : "disabled");
+    this->p_nh_.param("positive_feedback", this->positive_feedback_, false);
+    ROS_WARN("[Training CVSA] Positive feedback is %s", this->positive_feedback_ ? "enabled" : "disabled");
 
     /* PARAMETER FOR THE EYE*/
     // Getting do or not eye calibration
@@ -140,8 +140,8 @@ bool TrainingCVSA::configure(void) {
     ros::param::param("~duration/start",            this->duration_.start,             1000);
     ros::param::param("~duration/fixation",         this->duration_.fixation,          2000);
     ros::param::param("~duration/cue",              this->duration_.cue,               1000);
-    ros::param::param("~duration/feedback_min",     this->duration_.feedback_min,      4000);
-    ros::param::param("~duration/feedback_max",     this->duration_.feedback_max,      5500);
+    ros::param::param("~duration/feedback_min",     this->duration_.feedback_min,      5000);
+    ros::param::param("~duration/feedback_max",     this->duration_.feedback_max,      6500);
     ros::param::param("~duration/boom",             this->duration_.boom,              1000);
     ros::param::param("~duration/timeout",          this->duration_.timeout,          10000);
     ros::param::param("~duration/iti",              this->duration_.iti,                100);
@@ -162,9 +162,9 @@ bool TrainingCVSA::configure(void) {
         this->trialsequence_.addclass(this->classes_.at(i), this->trials_per_class_.at(i), this->mindur_active_, this->maxdur_active_);
     }
     
-    ROS_INFO("Total number of classes: %ld", this->classes_.size());
-    ROS_INFO("Total number of trials:  %d", this->trialsequence_.size());
-    ROS_INFO("Trials have been randomized");
+    ROS_INFO("[Training CVSA] Total number of classes: %ld", this->classes_.size());
+    ROS_INFO("[Training CVSA] Total number of trials:  %d", this->trialsequence_.size());
+    ROS_INFO("[Training CVSA] Trials have been randomized");
 
     return true;
 
@@ -244,8 +244,7 @@ void TrainingCVSA::on_received_data(const rosneuro_msgs::NeuroOutput& msg) {
     // Set the new incoming data
     this->current_input_ = msg.softpredict.data;
 
-    //std::cout << "Received data: " << this->current_input_[0] << " " << this->current_input_[1] << std::endl;
-        
+    //std::cout << "Received data: " << this->current_input_[0] << " " << this->current_input_[1] << std::endl;  
 }
 
 bool TrainingCVSA::on_repeat_trial(feedback_cvsa::Repeat_trial::Request &req, feedback_cvsa::Repeat_trial::Response &res) {
@@ -277,14 +276,14 @@ void TrainingCVSA::run(void) {
     while(true){
         this->srv_camera_ready_.call(srv.request, srv.response);
         if(srv.response.success == false) {
-            ROS_WARN_ONCE("Camera is not ready");
+            ROS_WARN_ONCE("[Training CVSA] Camera is not ready");
         }else{
             if(this->eye_calibration_){
-                ROS_INFO("Calibration eye started");
+                ROS_INFO("[Training CVSA] Calibration eye started");
                 this->eye_calibration();
             }
 
-            ROS_INFO("Protocol BCI started");
+            ROS_INFO("[Training CVSA] Protocol BCI started");
             this->show_rings_classes(); // show the rings of each class in the drawing window
             this->bci_protocol();
             break;
@@ -412,8 +411,12 @@ void TrainingCVSA::bci_protocol(void){
         size_t n_sampleAudio = this->sampleRate_audio_/this->rate_;
 
         // Set up initial probabilities
-        this->current_input_ = std::vector<float>(this->nclasses_, 0.0f) ; 
-        //this->current_input_ = std::vector<float>(this->nclasses_, 1.0f/this->nclasses_);
+        //this->current_input_ = std::vector<float>(this->nclasses_, 0.0f) ; 
+        if(this->modality_ == Modality::Calibration)
+            this->current_input_ = std::vector<float>(this->nclasses_, 1.0f/this->nclasses_);
+        else if(this->modality_ == Modality::Evaluation){
+            this->current_input_ = std::vector<float>(this->nclasses_, 0.0f);
+        }
 
         while(ros::ok() && this->user_quit_ == false && targethit == -1 && idx_sampleAudio < this->buffer_audio_full_.size()) {
 
@@ -590,9 +593,9 @@ int TrainingCVSA::is_target_hit(std::vector<float> input, int elapsed, int durat
         if(input.at(i) >= this->thresholds_[i]) {
             target = i;
             break;
-        } else if(elapsed >= duration) {
+        } else if(elapsed > duration) {
+            ROS_INFO("Timeout reached. Time elapsed: %d, time duration: %d", elapsed, duration);
             target = CuePalette.size()-1;
-            ROS_INFO("Timeout");
         }
     }
     
