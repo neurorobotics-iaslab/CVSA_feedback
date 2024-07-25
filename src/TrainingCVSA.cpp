@@ -593,9 +593,11 @@ int TrainingCVSA::is_target_hit(std::vector<float> input, int elapsed, int durat
         if(input.at(i) >= this->thresholds_[i]) {
             target = i;
             break;
-        } else if(elapsed > duration) {
-            ROS_INFO("Timeout reached. Time elapsed: %d, time duration: %d", elapsed, duration);
-            target = CuePalette.size()-1;
+        } else if(this ->modality_ == Modality::Evaluation){
+            if(elapsed > duration) {
+                ROS_INFO("Timeout reached. Time elapsed: %d, time duration: %d", elapsed, duration);
+                target = CuePalette.size()-1;
+            }
         }
     }
     
