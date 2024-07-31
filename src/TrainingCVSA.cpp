@@ -23,7 +23,7 @@ bool TrainingCVSA::configure(void) {
     /* PARAMETERS FOR THE LAYOUT */
     // Getting classes
     if(this->p_nh_.getParam("classes", this->classes_) == false) {
-        ROS_ERROR("Parameter 'classes' is mandatory");
+        ROS_ERROR("[Training_CVSA] Parameter 'classes' is mandatory");
         return false;
     } 
     this->set_nclasses(this->classes_.size());
@@ -32,12 +32,12 @@ bool TrainingCVSA::configure(void) {
     std::string layout;
     if(this->p_nh_.getParam("circlePositions", layout) == true) {
         if (this->str2matrix(layout).size() != this->nclasses_ || this->str2matrix(layout).at(0).size() != 2){
-            ROS_ERROR("The provided layout is not correct. It must be a matrix with %d rows and 2 columns", this->nclasses_);
+            ROS_ERROR("[Training_CVSA] The provided layout is not correct. It must be a matrix with %d rows and 2 columns", this->nclasses_);
             return false;
         } 
         this->set_circle_positions(this->str2matrix(layout));
     }else{
-        ROS_ERROR("Parameter 'circlePositions' is mandatory");
+        ROS_ERROR("[Training_CVSA] Parameter 'circlePositions' is mandatory");
         return false;
     }
     
@@ -48,25 +48,25 @@ bool TrainingCVSA::configure(void) {
     /* PARAMETER FOR THE TRIAL EXECUTIONS*/
     // Getting thresholds
     if(this->p_nh_.getParam("thresholds", this->thresholds_) == false) {
-        ROS_ERROR("Parameter 'thresholds' is mandatory");
+        ROS_ERROR("[Training_CVSA] Parameter 'thresholds' is mandatory");
         return false;
     } else if(this->thresholds_.size() != this->nclasses_) {
-        ROS_ERROR("Thresholds must be the same of the number of classes %d", this->nclasses_);
+        ROS_ERROR("[Training_CVSA] Thresholds must be the same of the number of classes %d", this->nclasses_);
         return false;
     }
 
     // Getting trials per class
     if(this->p_nh_.getParam("trials", this->trials_per_class_) == false) {
-        ROS_ERROR("Parameter 'trials' is mandatory");
+        ROS_ERROR("[Training_CVSA] Parameter 'trials' is mandatory");
         return false;
     } else if(this->trials_per_class_.size() != this->nclasses_) { 
-        ROS_ERROR("Number of trials per class must be provided for each class");
+        ROS_ERROR("[Training_CVSA] Number of trials per class must be provided for each class");
         return false;
     }
     
     // Getting modality 
     if(this->p_nh_.getParam("modality", modality) == false) {
-        ROS_ERROR("Parameter 'modality' is mandatory");
+        ROS_ERROR("[Training_CVSA] Parameter 'modality' is mandatory");
         return false;
     }
     
@@ -83,61 +83,61 @@ bool TrainingCVSA::configure(void) {
     // Getting parameters for audio feedback
     std::string audio_path;
     if(this->p_nh_.getParam("audio_path", audio_path) == false) {
-        ROS_ERROR("Parameter 'audio_feedback' is mandatory");
+        ROS_ERROR("[Training_CVSA] Parameter 'audio_feedback' is mandatory");
         return false;
     }
     this->loadWAVFile(audio_path);
     if(this->p_nh_.getParam("init_percentual", this->init_percentual_) == false) {
-        ROS_ERROR("Parameter 'init_val' is mandatory");
+        ROS_ERROR("[Training_CVSA] Parameter 'init_val' is mandatory");
         return false;
     }
     if(this->nclasses_ != this->channels_audio_) {
-        ROS_WARN("The number of classes (%d) is different of the number of channels of the audio feedback (%d)", this->nclasses_, this->channels_audio_);
+        ROS_WARN("[Training_CVSA] The number of classes (%d) is different of the number of channels of the audio feedback (%d)", this->nclasses_, this->channels_audio_);
     }
     if(this->init_percentual_.size() != this->nclasses_ ) {
-        ROS_ERROR("Parameter 'init_percentual' must have the same size of 'classes'");
+        ROS_ERROR("[Training_CVSA] Parameter 'init_percentual' must have the same size of 'classes'");
         return false;
-    }else if(std::accumulate(this->init_percentual_.begin(), this->init_percentual_.end(), 0.0) != 1.0){
-        ROS_ERROR("Parameter 'init_percentual' must sum to 1.0");
+    }else if(static_cast<float>(std::accumulate(this->init_percentual_.begin(), this->init_percentual_.end(), 0.0)) != 1.0f){
+        ROS_ERROR("[Training_CVSA] Parameter 'init_percentual' must sum to 1.0, it is %f", std::accumulate(this->init_percentual_.begin(), this->init_percentual_.end(), 0.0));
         return false;
     }
 
     /* PARAMETER FOR POSITIVE FEEDBACK*/
     this->p_nh_.param("positive_feedback", this->positive_feedback_, false);
-    ROS_WARN("[Training CVSA] Positive feedback is %s", this->positive_feedback_ ? "enabled" : "disabled");
+    ROS_WARN("[Training_CVSA] Positive feedback is %s", this->positive_feedback_ ? "enabled" : "disabled");
 
     /* PARAMETER FOR THE EYE*/
     // Getting do or not eye calibration
     if(this->p_nh_.getParam("eye_calibration", this->eye_calibration_) == false) {
-        ROS_ERROR("Parameter 'eye_calibration' is mandatory");
+        ROS_ERROR("[Training_CVSA] Parameter 'eye_calibration' is mandatory");
         return false;
     } 
     if(this->eye_calibration_ == true){
         if(this->p_nh_.getParam("calibration_classes", this->calibration_classes_) == false) {
-            ROS_ERROR("Parameter 'calibration_classes' is mandatory since eye_calibration is true");
+            ROS_ERROR("[Training_CVSA] Parameter 'calibration_classes' is mandatory since eye_calibration is true");
             return false;
         } 
         if(this->p_nh_.getParam("calibration_positions", layout) == true) {
             if (this->str2matrix(layout).size() != this->calibration_classes_.size() || this->str2matrix(layout).at(0).size() != 2){
-                ROS_ERROR("The provided layout for calibration_positions is not correct. It must be a matrix with %ld rows and 2 columns", this->calibration_classes_.size());
+                ROS_ERROR("[Training_CVSA] The provided layout for calibration_positions is not correct. It must be a matrix with %ld rows and 2 columns", this->calibration_classes_.size());
                 return false;
             } 
             this->calibration_positions_ = this->str2matrix(layout);
         }else{
-            ROS_ERROR("Parameter 'calibration_positions' is mandatory since eye_calibration is true");
+            ROS_ERROR("[Training_CVSA] Parameter 'calibration_positions' is mandatory since eye_calibration is true");
             return false;
         }
         if(this->p_nh_.getParam("max_trials_per_class", this->max_trials_per_class_) == false) {
-            ROS_ERROR("Parameter 'max_trials_per_class' is mandatory since eye_calibration is true");
+            ROS_ERROR("[Training_CVSA] Parameter 'max_trials_per_class' is mandatory since eye_calibration is true");
             if(this->max_trials_per_class_.size() < this->nclasses_){
-                ROS_ERROR("The number of max_trials_per_class must be greater than the number of classes");
+                ROS_ERROR("[Training_CVSA] The number of max_trials_per_class must be greater than the number of classes");
             }
             return false;
         }else{
             int sum;
             for(int i = 0; i < this->trials_per_class_.size(); i++){
                 if(this->max_trials_per_class_.at(i) < this->trials_per_class_.at(i)){
-                    ROS_ERROR("The number of max_trials_per_class_ must be greater than the trials_per_class_ for each class of the trials per class");
+                    ROS_ERROR("[Training_CVSA] The number of max_trials_per_class_ must be greater than the trials_per_class_ for each class of the trials per class");
                     return false;
                 }
             }
@@ -173,9 +173,9 @@ bool TrainingCVSA::configure(void) {
         this->trialsequence_.addclass(this->classes_.at(i), this->trials_per_class_.at(i), this->mindur_active_, this->maxdur_active_);
     }
     
-    ROS_INFO("[Training CVSA] Total number of classes: %ld", this->classes_.size());
-    ROS_INFO("[Training CVSA] Total number of trials:  %d", this->trialsequence_.size());
-    ROS_INFO("[Training CVSA] Trials have been randomized");
+    ROS_INFO("[Training_CVSA] Total number of classes: %ld", this->classes_.size());
+    ROS_INFO("[Training_CVSA] Total number of trials:  %d", this->trialsequence_.size());
+    ROS_INFO("[Training_CVSA] Trials have been randomized");
 
     return true;
 
@@ -514,7 +514,7 @@ void TrainingCVSA::bci_protocol(void){
     this->pub_trials_keep_.publish(msg);
 }
 
-std::vector<float> TrainingCVSA::normalize(std::vector<float>& input) {
+std::vector<float> TrainingCVSA::normalize4audio(std::vector<float>& input) {
     std::vector<float> input_norm(input.size());
     
     // if the value of a class is lower than the initial_percentual then its output is 0
@@ -535,7 +535,7 @@ void TrainingCVSA::fillAudioBuffer(int& idx_sampleAudio, const size_t& n_sampleA
     std::vector<float> input_norm = std::vector<float>(this->nclasses_, 0.0f);
 
     if(this->modality_ == Modality::Evaluation){
-        input_norm = this->normalize(this->current_input_);
+        input_norm = this->normalize4audio(this->current_input_);
     }else if(this->modality_ == Modality::Calibration){
         input_norm = this->current_input_;
     }
@@ -609,7 +609,7 @@ int TrainingCVSA::is_target_hit(std::vector<float> input, int elapsed, int durat
     int target = -1;
 
     for(int i = 0; i < this->nclasses_; i++) {
-        if(input.at(i) >= this->thresholds_[i]) {
+        if(input.at(i) >= this->thresholds_.at(i)) { 
             target = i;
             break;
         } else if(this ->modality_ == Modality::Evaluation){

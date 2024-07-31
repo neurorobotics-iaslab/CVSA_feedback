@@ -92,7 +92,7 @@ class TrainingCVSA : public CVSA_layout {
 
     private:
         std::vector<std::vector<float>> str2matrix(const std::string& str);
-        std::vector<float> normalize(std::vector<float>& input);
+        std::vector<float> normalize4audio(std::vector<float>& input);
 
     private:
         ros::NodeHandle nh_;
