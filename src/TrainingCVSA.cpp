@@ -87,8 +87,19 @@ bool TrainingCVSA::configure(void) {
         return false;
     }
     this->loadWAVFile(audio_path);
+    if(this->p_nh_.getParam("init_percentual", this->init_percentual_) == false) {
+        ROS_ERROR("Parameter 'init_val' is mandatory");
+        return false;
+    }
     if(this->nclasses_ != this->channels_audio_) {
         ROS_WARN("The number of classes (%d) is different of the number of channels of the audio feedback (%d)", this->nclasses_, this->channels_audio_);
+    }
+    if(this->init_percentual_.size() != this->nclasses_ ) {
+        ROS_ERROR("Parameter 'init_percentual' must have the same size of 'classes'");
+        return false;
+    }else if(std::accumulate(this->init_percentual_.begin(), this->init_percentual_.end(), 0.0) != 1.0){
+        ROS_ERROR("Parameter 'init_percentual' must sum to 1.0");
+        return false;
     }
 
     /* PARAMETER FOR POSITIVE FEEDBACK*/
@@ -413,7 +424,7 @@ void TrainingCVSA::bci_protocol(void){
         // Set up initial probabilities
         //this->current_input_ = std::vector<float>(this->nclasses_, 0.0f) ; 
         if(this->modality_ == Modality::Calibration)
-            this->current_input_ = std::vector<float>(this->nclasses_, 1.0f/this->nclasses_);
+            this->current_input_ = this->init_percentual_;
         else if(this->modality_ == Modality::Evaluation){
             this->current_input_ = std::vector<float>(this->nclasses_, 0.0f);
         }
@@ -505,12 +516,15 @@ void TrainingCVSA::bci_protocol(void){
 
 std::vector<float> TrainingCVSA::normalize(std::vector<float>& input) {
     std::vector<float> input_norm(input.size());
-    for(int i = 0; i < this->nclasses_; i++){
-        input_norm.at(i) = input.at(i) - 1.0f/this->nclasses_;
-        float ths = this->thresholds_.at(i) - 1.0f/this->nclasses_;
-        if(input_norm.at(i) < 0)
-            input_norm.at(i) = 0;
-        input_norm.at(i) = input_norm.at(i) / ths;
+    
+    // if the value of a class is lower than the initial_percentual then its output is 0
+    // otherwise it must be normalized between initial_percentual and threshold
+    for(int i = 0; i < input.size(); i++) {
+        if(input.at(i) <= this->init_percentual_.at(i)) {
+            input_norm.at(i) = 0.0f;
+        } else {
+            input_norm.at(i) = (input.at(i) - this->init_percentual_.at(i)) / (this->thresholds_.at(i) - this->init_percentual_.at(i));
+        }
     }
 
     return input_norm;
@@ -518,8 +532,13 @@ std::vector<float> TrainingCVSA::normalize(std::vector<float>& input) {
 
 void TrainingCVSA::fillAudioBuffer(int& idx_sampleAudio, const size_t& n_sampleAudio) {
 
-    //std::vector<float> input_norm = this->normalize(this->current_input_);
-    std::vector<float> input_norm = this->current_input_;
+    std::vector<float> input_norm = std::vector<float>(this->nclasses_, 0.0f);
+
+    if(this->modality_ == Modality::Evaluation){
+        input_norm = this->normalize(this->current_input_);
+    }else if(this->modality_ == Modality::Calibration){
+        input_norm = this->current_input_;
+    }
 
     for(int i = 0; i < n_sampleAudio * this->channels_audio_; i += this->channels_audio_) {
         for(int j = 0; j < this->channels_audio_; j++) {

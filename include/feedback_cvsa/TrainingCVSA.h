@@ -139,6 +139,7 @@ class TrainingCVSA : public CVSA_layout {
         std::vector<short> buffer_audio_full_;
         std::vector<short> buffer_audio_played_;
         ao_device *device_audio_;
+        std::vector<float> init_percentual_;
 
         // for positive feedback
         bool positive_feedback_ = false;
