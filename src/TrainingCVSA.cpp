@@ -87,21 +87,19 @@ bool TrainingCVSA::configure(void) {
         return false;
     }
     this->loadWAVFile(audio_path);
-    if(this->modality_ == Modality::Evaluation){
-        if(this->p_nh_.getParam("init_percentual", this->init_percentual_) == false) {
-            ROS_ERROR("[Training_CVSA] Parameter 'init_percentual' is mandatory");
-            return false;
-        }
-        if(this->nclasses_ != this->channels_audio_) {
-            ROS_WARN("[Training_CVSA] The number of classes (%d) is different of the number of channels of the audio feedback (%d)", this->nclasses_, this->channels_audio_);
-        }
-        if(this->init_percentual_.size() != this->nclasses_ ) {
-            ROS_ERROR("[Training_CVSA] Parameter 'init_percentual' must have the same size of 'classes'");
-            return false;
-        }else if(static_cast<float>(std::accumulate(this->init_percentual_.begin(), this->init_percentual_.end(), 0.0)) != 1.0f){
-            ROS_ERROR("[Training_CVSA] Parameter 'init_percentual' must sum to 1.0, it is %f", std::accumulate(this->init_percentual_.begin(), this->init_percentual_.end(), 0.0));
-            return false;
-        }
+    if(this->p_nh_.getParam("init_percentual", this->init_percentual_) == false) {
+        ROS_ERROR("[Training_CVSA] Parameter 'init_percentual' is mandatory");
+        return false;
+    }
+    if(this->nclasses_ != this->channels_audio_) {
+        ROS_WARN("[Training_CVSA] The number of classes (%d) is different of the number of channels of the audio feedback (%d)", this->nclasses_, this->channels_audio_);
+    }
+    if(this->init_percentual_.size() != this->nclasses_ ) {
+        ROS_ERROR("[Training_CVSA] Parameter 'init_percentual' must have the same size of 'classes'");
+        return false;
+    }else if(static_cast<float>(std::accumulate(this->init_percentual_.begin(), this->init_percentual_.end(), 0.0)) != 1.0f){
+        ROS_ERROR("[Training_CVSA] Parameter 'init_percentual' must sum to 1.0, it is %f", std::accumulate(this->init_percentual_.begin(), this->init_percentual_.end(), 0.0));
+        return false;
     }
 
     /* PARAMETER FOR POSITIVE FEEDBACK*/
