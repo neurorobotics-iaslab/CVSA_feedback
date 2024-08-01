@@ -425,9 +425,9 @@ void TrainingCVSA::bci_protocol(void){
 
         // Set up initial probabilities
         //this->current_input_ = std::vector<float>(this->nclasses_, 0.0f) ; 
-        if(this->modality_ == Modality::Calibration)
+        if(this->modality_ == Modality::Calibration){
             this->current_input_ = this->init_percentual_;
-        else if(this->modality_ == Modality::Evaluation){
+        }else if(this->modality_ == Modality::Evaluation){
             this->current_input_ = std::vector<float>(this->nclasses_, 0.0f);
         }
 
