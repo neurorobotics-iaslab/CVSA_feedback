@@ -37,6 +37,7 @@ struct Events {
     static const int CFeedback     = 781;
     static const int Hit           = 897;
     static const int Miss          = 898;
+    static const int Timeout       = 899;
     static const int Off           = 32768;
 
     static const int StartCalibEye = 2;

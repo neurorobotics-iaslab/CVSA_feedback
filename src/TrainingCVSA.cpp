@@ -199,7 +199,7 @@ int TrainingCVSA::class2index(int eventcue) {
     if(it != this->classes_.end()){
         idx = std::distance(this->classes_.begin(), it);
     }else{
-        ROS_ERROR("Class %d not found", eventcue);
+        ROS_ERROR("[Training_CVSA] Class %d not found", eventcue);
     }
 
     return idx;
@@ -210,7 +210,7 @@ float TrainingCVSA::direction2threshold(int index) {
 	if(index != -1) {
 		return this->thresholds_[index];
 	} else {
-		ROS_ERROR("Unknown direction");
+		ROS_ERROR("[Training_CVSA] Unknown direction");
 		return -1;
 	}
 }
@@ -248,7 +248,7 @@ void TrainingCVSA::on_received_data(const rosneuro_msgs::NeuroOutput& msg) {
     }
 
     if(class_not_found == true) {
-        ROS_WARN_THROTTLE(5.0f, "The incoming neurooutput message does not have the provided classes");
+        ROS_WARN_THROTTLE(5.0f, "[Training_CVSA] The incoming neurooutput message does not have the provided classes");
         return;
     }
 
@@ -287,14 +287,14 @@ void TrainingCVSA::run(void) {
     while(true){
         this->srv_camera_ready_.call(srv.request, srv.response);
         if(srv.response.success == false) {
-            ROS_WARN_ONCE("[Training CVSA] Camera is not ready");
+            ROS_WARN_ONCE("[Training_CVSA] Camera is not ready");
         }else{
             if(this->eye_calibration_){
-                ROS_INFO("[Training CVSA] Calibration eye started");
+                ROS_INFO("[Training_CVSA] Calibration eye started");
                 this->eye_calibration();
             }
 
-            ROS_INFO("[Training CVSA] Protocol BCI started");
+            ROS_INFO("[Training_CVSA] Protocol BCI started");
             this->show_rings_classes(); // show the rings of each class in the drawing window
             this->bci_protocol();
             break;
@@ -338,15 +338,16 @@ void TrainingCVSA::eye_calibration(void) {
 }
 
 void TrainingCVSA::bci_protocol(void){
-    int       trialnumber;
-    int       trialclass;
-    int       trialduration;
-    float     trialthreshold;
-    int       hitclass;
-    int       boomevent;
-    int       idx_class;
-    int       trialdirection;
-    int       targethit;
+    int                    trialnumber;
+    int                    trialclass;
+    int                    trialduration;
+    float                  trialthreshold;
+    int                    hitclass;
+    int                    boomevent;
+    int                    idx_class;
+    int                    trialdirection;
+    int                    targethit;
+    std::vector<int>       count_results = std::vector<int>(3, 0); // count hit, miss and timeout
     ros::Rate r(this->rate_);
     std::vector<int> idxs_classes(this->nclasses_);
     std::iota(idxs_classes.begin(), idxs_classes.end(), 0);
@@ -378,7 +379,7 @@ void TrainingCVSA::bci_protocol(void){
             autopilot->set(0.0f, trialthreshold, trialduration);
         }
 
-        ROS_INFO("Trial %d/%d (class: %d | duration: %d ms)", trialnumber, this->trialsequence_.size(), trialclass, trialduration);
+        ROS_INFO("[Training_CVSA] Trial %d/%d (class: %d | duration: %d ms)", trialnumber, this->trialsequence_.size(), trialclass, trialduration);
         this->setevent(Events::Start);
         this->sleep(this->duration_.start);
         //this->setevent(Events::Start + Events::Off);
@@ -405,6 +406,7 @@ void TrainingCVSA::bci_protocol(void){
 
         // Continuous Feedback
         this->timer_.tic();
+        int c_time;
 
         // Consuming old messages
         ros::spinOnce();
@@ -444,8 +446,9 @@ void TrainingCVSA::bci_protocol(void){
                     this->fillAudioBuffer(idx_sampleAudio, n_sampleAudio);
                     ao_play(this->device_audio_, reinterpret_cast<char*>(this->buffer_audio_played_.data()), bufferAudioSize * sizeof(short));
                 }else{
-                    auto maxElemIter = std::max_element(this->current_input_.begin(), this->current_input_.end());
-                    int idx_maxElem = std::distance(this->current_input_.begin(), maxElemIter);
+                    std::vector<float> input_norm = this->normalize4audio(this->current_input_);
+                    auto maxElemIter = std::max_element(input_norm.begin(), input_norm.end());
+                    int idx_maxElem = std::distance(input_norm.begin(), maxElemIter);
                     if(idx_maxElem == idx_class){
                         this->fillAudioBuffer(idx_sampleAudio, n_sampleAudio);
                         ao_play(this->device_audio_, reinterpret_cast<char*>(this->buffer_audio_played_.data()), bufferAudioSize * sizeof(short));
@@ -454,8 +457,9 @@ void TrainingCVSA::bci_protocol(void){
                 //ROS_INFO("Probabilities: %f %f Thresholds: %f %f", this->current_input_[0], this->current_input_[1], this->thresholds_[0], this->thresholds_[1]);
             }
             
+            c_time = this->timer_.toc();
             targethit = this->is_target_hit(this->current_input_,  
-                                            this->timer_.toc(), trialduration);
+                                            c_time, trialduration);
 
             if(targethit != -1)
                 break;
@@ -469,7 +473,14 @@ void TrainingCVSA::bci_protocol(void){
         
 
         // Boom
-        boomevent = trialdirection == targethit ? Events::Hit : Events::Miss;
+        if(trialdirection == targethit){
+            boomevent = Events::Hit;
+        }else if(targethit >= 0 && targethit < this->nclasses_){
+            boomevent = Events::Miss;
+        }else{
+            boomevent = Events::Timeout;
+        }
+        //boomevent = trialdirection == targethit ? Events::Hit : Events::Miss;
         this->setevent(boomevent);
         this->show_boom(trialdirection, targethit);
         this->sleep(this->duration_.boom);
@@ -481,10 +492,16 @@ void TrainingCVSA::bci_protocol(void){
 
         switch(boomevent) {
             case Events::Hit:
-                ROS_INFO("Target hit");
+                count_results[0] = count_results[0]+1;
+                ROS_INFO("[Training_CVSA] Target hit");
                 break;
             case Events::Miss:
-                ROS_INFO("Target miss");
+                count_results[1] = count_results[1]+1;
+                ROS_INFO("[Training_CVSA] Target miss");
+                break;
+            case Events::Timeout:
+                count_results[2] = count_results[2]+1;
+                ROS_INFO("[Training_CVSA] Timeout reached. Time elapsed: %d, time duration: %d", c_time, trialduration);
                 break;
         }
 
@@ -503,10 +520,13 @@ void TrainingCVSA::bci_protocol(void){
         if(ros::ok() == false || this->user_quit_ == true) break;
     }
 
+    // Print accuracy
+    ROS_INFO("[Training_CVSA] Hit: %d, Miss: %d, Timeout: %d", count_results[0], count_results[1], count_results[2]);
+
     // End
     if(user_quit_ == false)
         this->sleep(this->duration_.end);
-    ROS_INFO("Protocol ended");
+    ROS_INFO("[Training_CVSA] Protocol ended");
 
     // Publish the trials keep
     feedback_cvsa::Trials_to_keep msg;
@@ -552,7 +572,7 @@ void TrainingCVSA::loadWAVFile(const std::string& filename) {
     SF_INFO sfInfo;
     SNDFILE *file = sf_open(filename.c_str(), SFM_READ, &sfInfo);
     if (!file) {
-        ROS_ERROR( "Error opening WAV file: " );
+        ROS_ERROR("[Training_CVSA] Error opening WAV file: ");
         return;
     }
 
@@ -583,7 +603,7 @@ void TrainingCVSA::openAudioDevice(){
     // Open device
     this->device_audio_ = ao_open_live(defaultDriver, &aoFormat, nullptr);
     if (this->device_audio_ == nullptr) {
-        ROS_ERROR("Error opening device audio.");
+        ROS_ERROR("[Training_CVSA] Error opening device audio.");
         return;
     }
 }
@@ -614,8 +634,8 @@ int TrainingCVSA::is_target_hit(std::vector<float> input, int elapsed, int durat
             break;
         } else if(this ->modality_ == Modality::Evaluation){
             if(elapsed > duration) {
-                ROS_INFO("Timeout reached. Time elapsed: %d, time duration: %d", elapsed, duration);
                 target = CuePalette.size()-1;
+                break;
             }
         }
     }
@@ -629,43 +649,43 @@ void TrainingCVSA::on_request_reconfigure(config_cvsa &config, uint32_t level) {
     {
     case 2:
         if(std::fabs(config.threshold_0 - this->thresholds_[0]) > 0.00001) {
-            ROS_WARN("Threshold class %d changed from %f to %f", this->classes_.at(0), this->thresholds_[0], config.threshold_0);
+            ROS_WARN("[Training_CVSA] Threshold class %d changed from %f to %f", this->classes_.at(0), this->thresholds_[0], config.threshold_0);
             this->thresholds_[0] = config.threshold_0;
         }
         if(std::fabs(config.threshold_1 - this->thresholds_[1]) > 0.00001) {
-            ROS_WARN("Threshold class %d changed from %f to %f", this->classes_.at(1), this->thresholds_[1], config.threshold_1);
+            ROS_WARN("[Training_CVSA] Threshold class %d changed from %f to %f", this->classes_.at(1), this->thresholds_[1], config.threshold_1);
             this->thresholds_[1] = config.threshold_1;
         }
         break;
     case 3:
         if(std::fabs(config.threshold_0 - this->thresholds_[0]) > 0.00001) {
-            ROS_WARN("Threshold class %d changed from %f to %f", this->classes_.at(0), this->thresholds_[0], config.threshold_0);
+            ROS_WARN("[Training_CVSA] Threshold class %d changed from %f to %f", this->classes_.at(0), this->thresholds_[0], config.threshold_0);
             this->thresholds_[0] = config.threshold_0;
         }
         if(std::fabs(config.threshold_1 - this->thresholds_[1]) > 0.00001) {
-            ROS_WARN("Threshold class %d changed from %f to %f", this->classes_.at(1), this->thresholds_[1], config.threshold_1);
+            ROS_WARN("[Training_CVSA] Threshold class %d changed from %f to %f", this->classes_.at(1), this->thresholds_[1], config.threshold_1);
             this->thresholds_[1] = config.threshold_1;
         }
         if(std::fabs(config.threshold_2 - this->thresholds_[2]) > 0.00001) {
-            ROS_WARN("Threshold class %d changed from %f to %f", this->classes_.at(2), this->thresholds_[2], config.threshold_2);
+            ROS_WARN("[Training_CVSA] Threshold class %d changed from %f to %f", this->classes_.at(2), this->thresholds_[2], config.threshold_2);
             this->thresholds_[2] = config.threshold_2;
         }
         break;
     case 4:
         if(std::fabs(config.threshold_0 - this->thresholds_[0]) > 0.00001) {
-            ROS_WARN("Threshold class %d changed from %f to %f", this->classes_.at(0), this->thresholds_[0], config.threshold_0);
+            ROS_WARN("[Training_CVSA] Threshold class %d changed from %f to %f", this->classes_.at(0), this->thresholds_[0], config.threshold_0);
             this->thresholds_[0] = config.threshold_0;
         }
         if(std::fabs(config.threshold_1 - this->thresholds_[1]) > 0.00001) {
-            ROS_WARN("Threshold class %d changed from %f to %f", this->classes_.at(1), this->thresholds_[1], config.threshold_1);
+            ROS_WARN("[Training_CVSA] Threshold class %d changed from %f to %f", this->classes_.at(1), this->thresholds_[1], config.threshold_1);
             this->thresholds_[1] = config.threshold_1;
         }
         if(std::fabs(config.threshold_2 - this->thresholds_[2]) > 0.00001) {
-            ROS_WARN("Threshold class %d changed from %f to %f", this->classes_.at(2), this->thresholds_[2], config.threshold_2);
+            ROS_WARN("[Training_CVSA] Threshold class %d changed from %f to %f", this->classes_.at(2), this->thresholds_[2], config.threshold_2);
             this->thresholds_[2] = config.threshold_2;
         }
         if(std::fabs(config.threshold_3 - this->thresholds_[3]) > 0.00001) {
-            ROS_WARN("Threshold class %d changed from %f to %f", this->classes_.at(3), this->thresholds_[3], config.threshold_3);
+            ROS_WARN("[Training_CVSA] Threshold class %d changed from %f to %f", this->classes_.at(3), this->thresholds_[3], config.threshold_3);
             this->thresholds_[3] = config.threshold_3;
         }
         break;
