@@ -629,34 +629,43 @@ void TrainingCVSA::on_request_reconfigure(config_cvsa &config, uint32_t level) {
     {
     case 2:
         if(std::fabs(config.threshold_0 - this->thresholds_[0]) > 0.00001) {
+            ROS_WARN("Threshold class %d changed from %f to %f", this->classes_.at(0), this->thresholds_[0], config.threshold_0);
             this->thresholds_[0] = config.threshold_0;
         }
         if(std::fabs(config.threshold_1 - this->thresholds_[1]) > 0.00001) {
+            ROS_WARN("Threshold class %d changed from %f to %f", this->classes_.at(1), this->thresholds_[1], config.threshold_1);
             this->thresholds_[1] = config.threshold_1;
         }
         break;
     case 3:
         if(std::fabs(config.threshold_0 - this->thresholds_[0]) > 0.00001) {
+            ROS_WARN("Threshold class %d changed from %f to %f", this->classes_.at(0), this->thresholds_[0], config.threshold_0);
             this->thresholds_[0] = config.threshold_0;
         }
         if(std::fabs(config.threshold_1 - this->thresholds_[1]) > 0.00001) {
+            ROS_WARN("Threshold class %d changed from %f to %f", this->classes_.at(1), this->thresholds_[1], config.threshold_1);
             this->thresholds_[1] = config.threshold_1;
         }
         if(std::fabs(config.threshold_2 - this->thresholds_[2]) > 0.00001) {
+            ROS_WARN("Threshold class %d changed from %f to %f", this->classes_.at(2), this->thresholds_[2], config.threshold_2);
             this->thresholds_[2] = config.threshold_2;
         }
         break;
     case 4:
         if(std::fabs(config.threshold_0 - this->thresholds_[0]) > 0.00001) {
+            ROS_WARN("Threshold class %d changed from %f to %f", this->classes_.at(0), this->thresholds_[0], config.threshold_0);
             this->thresholds_[0] = config.threshold_0;
         }
         if(std::fabs(config.threshold_1 - this->thresholds_[1]) > 0.00001) {
+            ROS_WARN("Threshold class %d changed from %f to %f", this->classes_.at(1), this->thresholds_[1], config.threshold_1);
             this->thresholds_[1] = config.threshold_1;
         }
         if(std::fabs(config.threshold_2 - this->thresholds_[2]) > 0.00001) {
+            ROS_WARN("Threshold class %d changed from %f to %f", this->classes_.at(2), this->thresholds_[2], config.threshold_2);
             this->thresholds_[2] = config.threshold_2;
         }
         if(std::fabs(config.threshold_3 - this->thresholds_[3]) > 0.00001) {
+            ROS_WARN("Threshold class %d changed from %f to %f", this->classes_.at(3), this->thresholds_[3], config.threshold_3);
             this->thresholds_[3] = config.threshold_3;
         }
         break;
