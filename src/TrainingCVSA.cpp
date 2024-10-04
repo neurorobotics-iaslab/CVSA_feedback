@@ -106,6 +106,13 @@ bool TrainingCVSA::configure(void) {
     this->p_nh_.param("positive_feedback", this->positive_feedback_, false);
     ROS_WARN("[Training_CVSA] Positive feedback is %s", this->positive_feedback_ ? "enabled" : "disabled");
 
+    /* PARAMETER FOR ROBOT CONTROL */
+    this->p_nh_.param("robot_control", this->robot_control_, false);
+    ROS_WARN("[Training_CVSA] Robot control is %s", this->robot_control_ ? "enabled" : "disabled");
+    if(this->robot_control_){
+        this->srv_robot_motion_ = this->nh_.serviceClient<std_srvs::Trigger>("cvsa/robot_motion");
+    }
+
     /* PARAMETER FOR THE EYE*/
     // Getting do or not eye calibration
     if(this->p_nh_.getParam("eye_calibration", this->eye_calibration_) == false) {
@@ -282,6 +289,9 @@ bool TrainingCVSA::on_repeat_trial(feedback_cvsa::Repeat_trial::Request &req, fe
 void TrainingCVSA::run(void) {
 
     this->srv_camera_ready_.waitForExistence();
+    if(this->robot_control_){
+        this->srv_robot_motion_.waitForExistence();
+    }
     std_srvs::Trigger srv = std_srvs::Trigger();
 
     while(true){
@@ -518,6 +528,21 @@ void TrainingCVSA::bci_protocol(void){
         this->sleep(this->duration_.iti);
 
         if(ros::ok() == false || this->user_quit_ == true) break;
+
+        // for the robot motion
+        if(this->robot_control_){
+            std_srvs::Trigger srv;
+            while(true){
+                this->srv_robot_motion_.call(srv.request, srv.response);
+                if(srv.response.success == false){
+                    break;
+                }else{
+                    ROS_WARN_ONCE("[Training_CVSA] Robot is moving. Waiting for the robot to stop.");
+                }
+                this->sleep(1000);
+            }
+            
+        }
     }
 
     // Print accuracy

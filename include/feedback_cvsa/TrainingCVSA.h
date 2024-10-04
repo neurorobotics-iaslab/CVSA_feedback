@@ -103,6 +103,7 @@ class TrainingCVSA : public CVSA_layout {
         ros::Publisher pub_trials_keep_;
         ros::ServiceServer srv_repeat_trial_;
         ros::ServiceClient srv_camera_ready_;
+        ros::ServiceClient srv_robot_motion_;
 
         rosneuro_msgs::NeuroEvent  event_msg_;
         rosneuro_msgs::NeuroOutput inputmsg_;
@@ -144,6 +145,9 @@ class TrainingCVSA : public CVSA_layout {
 
         // for positive feedback
         bool positive_feedback_ = false;
+
+        // for robto control
+        bool robot_control_ = false;
 };
 
 
