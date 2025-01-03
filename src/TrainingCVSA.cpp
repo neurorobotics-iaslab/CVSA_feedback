@@ -158,10 +158,10 @@ bool TrainingCVSA::configure(void) {
     ros::param::param("~duration/start",            this->duration_.start,             1000);
     ros::param::param("~duration/fixation",         this->duration_.fixation,          2000);
     ros::param::param("~duration/cue",              this->duration_.cue,               1000);
-    ros::param::param("~duration/feedback_min",     this->duration_.feedback_min,      5000);
-    ros::param::param("~duration/feedback_max",     this->duration_.feedback_max,      6500);
+    ros::param::param("~duration/feedback_min",     this->duration_.feedback_min,      4000); // duration of cf
+    ros::param::param("~duration/feedback_max",     this->duration_.feedback_max,      5500);
     ros::param::param("~duration/boom",             this->duration_.boom,              1000);
-    ros::param::param("~duration/timeout",          this->duration_.timeout,          10000);
+    ros::param::param("~duration/timeout",          this->duration_.timeout,          10000); // duration of cf
     ros::param::param("~duration/iti",              this->duration_.iti,                100);
     ros::param::param("~duration/end",              this->duration_.end,               2000);
     ros::param::param("~duration/calibration",      this->duration_.calibration,       2000);
@@ -389,7 +389,7 @@ void TrainingCVSA::bci_protocol(void){
             autopilot->set(0.0f, trialthreshold, trialduration);
         }
 
-        ROS_INFO("[Training_CVSA] Trial %d/%d (class: %d | duration: %d ms)", trialnumber, this->trialsequence_.size(), trialclass, trialduration);
+        ROS_INFO("[Training_CVSA] Trial %d/%d (class: %d | duration cf: %d ms)", trialnumber, this->trialsequence_.size(), trialclass, trialduration);
         this->setevent(Events::Start);
         this->sleep(this->duration_.start);
         //this->setevent(Events::Start + Events::Off);
@@ -421,7 +421,7 @@ void TrainingCVSA::bci_protocol(void){
         // Consuming old messages
         ros::spinOnce();
 
-        // Send reset event
+        // Send cf event
         this->setevent(Events::CFeedback);
         this->show_center();
 
@@ -434,12 +434,7 @@ void TrainingCVSA::bci_protocol(void){
         size_t n_sampleAudio = this->sampleRate_audio_/this->rate_;
 
         // Set up initial probabilities
-        //this->current_input_ = std::vector<float>(this->nclasses_, 0.0f) ; 
-        if(this->modality_ == Modality::Calibration){
-            this->current_input_ = this->init_percentual_;
-        }else if(this->modality_ == Modality::Evaluation){
-            this->current_input_ = std::vector<float>(this->nclasses_, 0.0f);
-        }
+        this->current_input_ = std::vector<float>(this->nclasses_, 0.0f) ; 
 
         while(ros::ok() && this->user_quit_ == false && targethit == -1 && idx_sampleAudio < this->buffer_audio_full_.size()) {
 
@@ -447,9 +442,6 @@ void TrainingCVSA::bci_protocol(void){
                 this->fillAudioBuffer(idx_sampleAudio, n_sampleAudio);
                 ao_play(this->device_audio_, reinterpret_cast<char*>(this->buffer_audio_played_.data()), bufferAudioSize * sizeof(short));
                 this->current_input_[idx_class] = this->current_input_[idx_class] + autopilot->step();
-                for(auto it = idxs_classes_not_trial.begin(); it != idxs_classes_not_trial.end(); ++it) {
-                    this->current_input_[*it] = (1.0f - this->current_input_[idx_class]) / (this->nclasses_ - 1);
-                }
                 //ROS_INFO("Probabilities: %f %f Thresholds: %f %f", this->current_input_[0], this->current_input_[1], this->thresholds_[0], this->thresholds_[1]);
             } else if(this->modality_ == Modality::Evaluation) {
                 if(!this->positive_feedback_){
