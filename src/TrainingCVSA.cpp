@@ -81,12 +81,10 @@ bool TrainingCVSA::configure(void) {
 
     /* PARAMETER FOR THE SOUND FEEDBACK*/
     // Getting parameters for audio feedback
-    std::string audio_path;
-    if(this->p_nh_.getParam("audio_path", audio_path) == false) {
+    if(this->p_nh_.getParam("audio_path", this->audio_path_) == false) {
         ROS_ERROR("[Training_CVSA] Parameter 'audio_feedback' is mandatory");
         return false;
     }
-    this->loadWAVFile(audio_path);
     if(this->p_nh_.getParam("init_percentual", this->init_percentual_) == false) {
         ROS_ERROR("[Training_CVSA] Parameter 'init_percentual' is mandatory");
         return false;
@@ -101,6 +99,8 @@ bool TrainingCVSA::configure(void) {
         ROS_ERROR("[Training_CVSA] Parameter 'init_percentual' must sum to 1.0, it is %f", std::accumulate(this->init_percentual_.begin(), this->init_percentual_.end(), 0.0));
         return false;
     }
+    this->p_nh_.param("audio_cue", this->audio_cue_, false);
+    ROS_WARN("[Training_CVSA] Audio cue is %s", this->audio_cue_ ? "enabled" : "disabled");
 
     /* PARAMETER FOR POSITIVE FEEDBACK*/
     this->p_nh_.param("positive_feedback", this->positive_feedback_, false);
@@ -406,17 +406,36 @@ void TrainingCVSA::bci_protocol(void){
         if(ros::ok() == false || this->user_quit_ == true) break;
 
         // Cue
+        int idx_sampleAudio;
+        size_t sampleAudio, bufferAudioSize, n_sampleAudio;
         this->setevent(trialclass);
-        this->show_cue(trialdirection);
-        this->sleep(this->duration_.cue);
-        this->hide_cue();
+        this->timer_.tic();
+        int c_time;
+        if(this->audio_cue_){
+            this->loadWAVFile(this->audio_path_ + "/" + std::to_string(trialclass) + ".wav");
+            this->openAudioDevice();
+            this->setAudio(idx_sampleAudio, sampleAudio, bufferAudioSize, n_sampleAudio);
+            while(idx_sampleAudio + n_sampleAudio <= this->buffer_audio_full_.size()){
+                this->fillAudioBuffer(idx_sampleAudio, n_sampleAudio, true);
+                ao_play(this->device_audio_, reinterpret_cast<char*>(this->buffer_audio_played_.data()), bufferAudioSize * sizeof(short));
+            }
+            this->closeAudioDevice();
+            c_time = this->timer_.toc();
+            if(this->duration_.cue - c_time > 0){
+                ROS_INFO("[Training_CVSA] Cue added time: %d ms", c_time);
+                this->sleep(this->duration_.cue - c_time);
+            }
+        }else{
+            this->show_cue(trialdirection);
+            this->sleep(this->duration_.cue);
+            this->hide_cue();
+        }
         this->setevent(trialclass + Events::Off);
         
         if(ros::ok() == false || this->user_quit_ == true) break;
 
         // Continuous Feedback
         this->timer_.tic();
-        int c_time;
 
         // Consuming old messages
         ros::spinOnce();
@@ -426,33 +445,30 @@ void TrainingCVSA::bci_protocol(void){
         this->show_center();
 
         // Start the sound feedback
+        this->loadWAVFile(this->audio_path_ + "/cf.wav");
         this->openAudioDevice();
-        size_t sampleAudio = this->sampleRate_audio_/this->rate_;
-        size_t bufferAudioSize = sampleAudio * this->channels_audio_;
-        this->buffer_audio_played_.resize(bufferAudioSize);
-        int idx_sampleAudio = 0;
-        size_t n_sampleAudio = this->sampleRate_audio_/this->rate_;
+        this->setAudio(idx_sampleAudio, sampleAudio, bufferAudioSize, n_sampleAudio);
 
         // Set up initial probabilities
-        this->current_input_ = std::vector<float>(this->nclasses_, 0.0f) ; 
+        this->current_input_ = std::vector<float>(this->nclasses_, 0.0f); 
 
-        while(ros::ok() && this->user_quit_ == false && targethit == -1 && idx_sampleAudio < this->buffer_audio_full_.size()) {
+        while(ros::ok() && this->user_quit_ == false && targethit == -1 && idx_sampleAudio + n_sampleAudio < this->buffer_audio_full_.size()) {
 
             if(this->modality_ == Modality::Calibration) {
-                this->fillAudioBuffer(idx_sampleAudio, n_sampleAudio);
+                this->fillAudioBuffer(idx_sampleAudio, n_sampleAudio, false);
                 ao_play(this->device_audio_, reinterpret_cast<char*>(this->buffer_audio_played_.data()), bufferAudioSize * sizeof(short));
                 this->current_input_[idx_class] = this->current_input_[idx_class] + autopilot->step();
                 //ROS_INFO("Probabilities: %f %f Thresholds: %f %f", this->current_input_[0], this->current_input_[1], this->thresholds_[0], this->thresholds_[1]);
             } else if(this->modality_ == Modality::Evaluation) {
                 if(!this->positive_feedback_){
-                    this->fillAudioBuffer(idx_sampleAudio, n_sampleAudio);
+                    this->fillAudioBuffer(idx_sampleAudio, n_sampleAudio, false);
                     ao_play(this->device_audio_, reinterpret_cast<char*>(this->buffer_audio_played_.data()), bufferAudioSize * sizeof(short));
                 }else{
                     std::vector<float> input_norm = this->normalize4audio(this->current_input_);
                     auto maxElemIter = std::max_element(input_norm.begin(), input_norm.end());
                     int idx_maxElem = std::distance(input_norm.begin(), maxElemIter);
                     if(idx_maxElem == idx_class){
-                        this->fillAudioBuffer(idx_sampleAudio, n_sampleAudio);
+                        this->fillAudioBuffer(idx_sampleAudio, n_sampleAudio, false);
                         ao_play(this->device_audio_, reinterpret_cast<char*>(this->buffer_audio_played_.data()), bufferAudioSize * sizeof(short));
                     }
                 }
@@ -567,13 +583,15 @@ std::vector<float> TrainingCVSA::normalize4audio(std::vector<float>& input) {
     return input_norm;
 }
 
-void TrainingCVSA::fillAudioBuffer(int& idx_sampleAudio, const size_t& n_sampleAudio) {
+void TrainingCVSA::fillAudioBuffer(int& idx_sampleAudio, const size_t& n_sampleAudio, bool cue) {
 
     std::vector<float> input_norm = std::vector<float>(this->nclasses_, 0.0f);
 
-    if(this->modality_ == Modality::Evaluation){
+    if(cue){
+        input_norm = std::vector<float>(this->nclasses_, 1.0f);
+    }else if(this->modality_ == Modality::Evaluation && !cue){
         input_norm = this->normalize4audio(this->current_input_);
-    }else if(this->modality_ == Modality::Calibration){
+    }else if(this->modality_ == Modality::Calibration && !cue){
         input_norm = this->current_input_;
     }
 
@@ -589,7 +607,7 @@ void TrainingCVSA::loadWAVFile(const std::string& filename) {
     SF_INFO sfInfo;
     SNDFILE *file = sf_open(filename.c_str(), SFM_READ, &sfInfo);
     if (!file) {
-        ROS_ERROR("[Training_CVSA] Error opening WAV file: ");
+        ROS_ERROR("[Training_CVSA] Error opening WAV file: %s", filename.c_str());
         return;
     }
 
@@ -600,6 +618,14 @@ void TrainingCVSA::loadWAVFile(const std::string& filename) {
     sf_read_short(file, this->buffer_audio_full_.data(), this->buffer_audio_full_.size());
 
     sf_close(file);
+}
+
+void TrainingCVSA::setAudio(int& idx_sampleAudio, size_t& sampleAudio, size_t& bufferAudioSize, size_t& n_sampleAudio){
+    sampleAudio = this->sampleRate_audio_/this->rate_;
+    bufferAudioSize = sampleAudio * this->channels_audio_;
+    this->buffer_audio_played_.resize(bufferAudioSize);
+    idx_sampleAudio = 0;
+    n_sampleAudio = this->sampleRate_audio_/this->rate_;
 }
 
 void TrainingCVSA::openAudioDevice(){

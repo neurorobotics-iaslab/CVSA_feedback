@@ -89,7 +89,8 @@ class TrainingCVSA : public CVSA_layout {
         void loadWAVFile(const std::string& filename);
         void openAudioDevice(void);
         void closeAudioDevice(void);
-        void fillAudioBuffer(int& idx_sampleAudio, const size_t& sampleAudio);
+        void fillAudioBuffer(int& idx_sampleAudio, const size_t& sampleAudio, bool cue);
+        void setAudio(int& idx_sampleAudio, size_t& sampleAudio, size_t& bufferAudioSize, size_t& n_sampleAudio);
 
     private:
         std::vector<std::vector<float>> str2matrix(const std::string& str);
@@ -136,6 +137,7 @@ class TrainingCVSA : public CVSA_layout {
         dyncfg_cvsa::CallbackType recfg_callback_type_;
 
         // feedback audio
+        std::string audio_path_;
         int channels_audio_;
         int sampleRate_audio_;
         std::vector<short> buffer_audio_full_;
@@ -148,6 +150,9 @@ class TrainingCVSA : public CVSA_layout {
 
         // for robto control
         bool robot_control_ = false;
+
+        // for audio cue
+        bool audio_cue_ = false;
 };
 
 
