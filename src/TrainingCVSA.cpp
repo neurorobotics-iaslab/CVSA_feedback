@@ -89,9 +89,6 @@ bool TrainingCVSA::configure(void) {
         ROS_ERROR("[Training_CVSA] Parameter 'init_percentual' is mandatory");
         return false;
     }
-    if(this->nclasses_ != this->channels_audio_) {
-        ROS_WARN("[Training_CVSA] The number of classes (%d) is different of the number of channels of the audio feedback (%d)", this->nclasses_, this->channels_audio_);
-    }
     if(this->init_percentual_.size() != this->nclasses_ ) {
         ROS_ERROR("[Training_CVSA] Parameter 'init_percentual' must have the same size of 'classes'");
         return false;
@@ -613,6 +610,10 @@ void TrainingCVSA::loadWAVFile(const std::string& filename) {
 
     this->channels_audio_ = sfInfo.channels;
     this->sampleRate_audio_ = sfInfo.samplerate;
+
+    if(this->nclasses_ != this->channels_audio_ && filename.find("cf.wav") != std::string::npos) {
+        ROS_WARN("[Training_CVSA] The number of classes (%d) is different of the number of channels of the audio feedback (%d)", this->nclasses_, this->channels_audio_);
+    }
 
     this->buffer_audio_full_.resize(sfInfo.frames * sfInfo.channels);
     sf_read_short(file, this->buffer_audio_full_.data(), this->buffer_audio_full_.size());
