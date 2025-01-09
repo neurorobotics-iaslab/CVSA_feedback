@@ -85,16 +85,18 @@ bool TrainingCVSA::configure(void) {
         ROS_ERROR("[Training_CVSA] Parameter 'audio_feedback' is mandatory");
         return false;
     }
-    if(this->p_nh_.getParam("init_percentual", this->init_percentual_) == false) {
-        ROS_ERROR("[Training_CVSA] Parameter 'init_percentual' is mandatory");
-        return false;
-    }
-    if(this->init_percentual_.size() != this->nclasses_ ) {
-        ROS_ERROR("[Training_CVSA] Parameter 'init_percentual' must have the same size of 'classes'");
-        return false;
-    }else if(static_cast<float>(std::accumulate(this->init_percentual_.begin(), this->init_percentual_.end(), 0.0)) != 1.0f){
-        ROS_ERROR("[Training_CVSA] Parameter 'init_percentual' must sum to 1.0, it is %f", std::accumulate(this->init_percentual_.begin(), this->init_percentual_.end(), 0.0));
-        return false;
+    if(this->modality_ == Modality::Evaluation){
+        if(this->p_nh_.getParam("init_percentual", this->init_percentual_) == false) {
+            ROS_ERROR("[Training_CVSA] Parameter 'init_percentual' is mandatory");
+            return false;
+        }
+        if(this->init_percentual_.size() != this->nclasses_ ) {
+            ROS_ERROR("[Training_CVSA] Parameter 'init_percentual' must have the same size of 'classes'");
+            return false;
+        }else if(static_cast<float>(std::accumulate(this->init_percentual_.begin(), this->init_percentual_.end(), 0.0)) != 1.0f){
+            ROS_ERROR("[Training_CVSA] Parameter 'init_percentual' must sum to 1.0, it is %f", std::accumulate(this->init_percentual_.begin(), this->init_percentual_.end(), 0.0));
+            return false;
+        }
     }
     this->p_nh_.param("audio_cue", this->audio_cue_, false);
     ROS_WARN("[Training_CVSA] Audio cue is %s", this->audio_cue_ ? "enabled" : "disabled");
@@ -285,27 +287,30 @@ bool TrainingCVSA::on_repeat_trial(feedback_cvsa::Repeat_trial::Request &req, fe
 
 void TrainingCVSA::run(void) {
 
-    this->srv_camera_ready_.waitForExistence();
+    if(this->eye_calibration_){
+        this->srv_camera_ready_.waitForExistence();
+    }
     if(this->robot_control_){
         this->srv_robot_motion_.waitForExistence();
     }
     std_srvs::Trigger srv = std_srvs::Trigger();
 
     while(true){
-        this->srv_camera_ready_.call(srv.request, srv.response);
-        if(srv.response.success == false) {
-            ROS_WARN_ONCE("[Training_CVSA] Camera is not ready");
-        }else{
-            if(this->eye_calibration_){
+        if(this->eye_calibration_){
+            this->srv_camera_ready_.call(srv.request, srv.response);
+            if(srv.response.success == false) {
+                ROS_WARN_ONCE("[Training_CVSA] Camera is not ready");
+                continue;
+            }else{
                 ROS_INFO("[Training_CVSA] Calibration eye started");
                 this->eye_calibration();
             }
-
-            ROS_INFO("[Training_CVSA] Protocol BCI started");
-            this->show_rings_classes(); // show the rings of each class in the drawing window
-            this->bci_protocol();
-            break;
         }
+
+        ROS_INFO("[Training_CVSA] Protocol BCI started");
+        this->show_rings_classes(); // show the rings of each class in the drawing window
+        this->bci_protocol();
+        break;
     }
     
 }
@@ -393,7 +398,8 @@ void TrainingCVSA::bci_protocol(void){
 
         if(ros::ok() == false || this->user_quit_ == true) break;
         
-        // Fixation
+
+        /* FIXATION */
         this->setevent(Events::Fixation);
         this->show_fixation();
         this->sleep(this->duration_.fixation);
@@ -402,7 +408,8 @@ void TrainingCVSA::bci_protocol(void){
 
         if(ros::ok() == false || this->user_quit_ == true) break;
 
-        // Cue
+
+        /* CUE */
         int idx_sampleAudio;
         size_t sampleAudio, bufferAudioSize, n_sampleAudio;
         this->setevent(trialclass);
@@ -431,7 +438,8 @@ void TrainingCVSA::bci_protocol(void){
         
         if(ros::ok() == false || this->user_quit_ == true) break;
 
-        // Continuous Feedback
+
+        /* CONTINUOUS FEEDBACK */
         this->timer_.tic();
 
         // Consuming old messages
@@ -484,10 +492,11 @@ void TrainingCVSA::bci_protocol(void){
         }
         this->hide_center();
         this->setevent(Events::CFeedback + Events::Off);
+        this->closeAudioDevice();
         if(ros::ok() == false || this->user_quit_ == true) break;
         
 
-        // Boom
+        /* BOOM */
         if(trialdirection == targethit){
             boomevent = Events::Hit;
         }else if(targethit >= 0 && targethit < this->nclasses_){
@@ -495,15 +504,35 @@ void TrainingCVSA::bci_protocol(void){
         }else{
             boomevent = Events::Timeout;
         }
-        //boomevent = trialdirection == targethit ? Events::Hit : Events::Miss;
-        this->setevent(boomevent);
-        this->show_boom(trialdirection, targethit);
-        this->sleep(this->duration_.boom);
-        this->hide_boom();
-        this->setevent(boomevent + Events::Off);
-
-        // Finish the trial
-        this->setevent(Events::Start + Events::Off);
+        // for the robot motion
+        if(this->robot_control_){
+            this->setevent(boomevent);
+            this->show_boom(trialdirection, targethit);
+            this->timer_.tic();
+            std_srvs::Trigger srv;
+            while(true){
+                this->srv_robot_motion_.call(srv.request, srv.response);
+                if(!srv.response.success){
+                    break;
+                }else{
+                    ROS_WARN_ONCE("[Training_CVSA] Robot is moving. Waiting for the robot to stop.");
+                }
+                this->sleep(500);
+            }
+            c_time = this->timer_.toc();
+            if(c_time < this->duration_.boom){
+                this->sleep(this->duration_.boom - c_time);
+                ROS_INFO("[Training_CVSA] Boom added time: %d ms", c_time);
+            }
+            this->hide_boom();
+            this->setevent(boomevent + Events::Off);
+        }else{
+            this->setevent(boomevent);
+            this->show_boom(trialdirection, targethit);
+            this->sleep(this->duration_.boom);
+            this->hide_boom();
+            this->setevent(boomevent + Events::Off);
+        }
 
         switch(boomevent) {
             case Events::Hit:
@@ -521,33 +550,18 @@ void TrainingCVSA::bci_protocol(void){
         }
 
 
+        /* FINISH the trial */
+        this->setevent(Events::Start + Events::Off);
+
         if(ros::ok() == false || this->user_quit_ == true) break;
         this->trials_keep_.push_back(this->trial_ok_);
 
-        // Close sound feedback
-        this->closeAudioDevice();
-
         // Inter trial interval
-        this->hide_cue();
         this->reset();
         this->sleep(this->duration_.iti);
 
         if(ros::ok() == false || this->user_quit_ == true) break;
 
-        // for the robot motion
-        if(this->robot_control_){
-            std_srvs::Trigger srv;
-            while(true){
-                this->srv_robot_motion_.call(srv.request, srv.response);
-                if(srv.response.success == false){
-                    break;
-                }else{
-                    ROS_WARN_ONCE("[Training_CVSA] Robot is moving. Waiting for the robot to stop.");
-                }
-                this->sleep(1000);
-            }
-            
-        }
     }
 
     // Print accuracy
