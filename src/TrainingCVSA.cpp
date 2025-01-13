@@ -109,7 +109,7 @@ bool TrainingCVSA::configure(void) {
     this->p_nh_.param("robot_control", this->robot_control_, false);
     ROS_WARN("[Training_CVSA] Robot control is %s", this->robot_control_ ? "enabled" : "disabled");
     if(this->robot_control_){
-        this->srv_robot_motion_ = this->nh_.serviceClient<std_srvs::Trigger>("cvsa/robot_motion");
+        this->srv_robot_motion_ = this->nh_.serviceClient<std_srvs::Trigger>("/cvsa/robot_motion");
     }
 
     /* PARAMETER FOR THE EYE*/
