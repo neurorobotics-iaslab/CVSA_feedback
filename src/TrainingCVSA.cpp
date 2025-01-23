@@ -7,7 +7,7 @@ TrainingCVSA::TrainingCVSA(void) : CVSA_layout("trainingCVSA"), p_nh_("~") {
 
     this->pub_ = this->nh_.advertise<rosneuro_msgs::NeuroEvent>("events/bus", 1);
     this->sub_ = this->nh_.subscribe("cvsa/neuroprediction/integrated", 1, &TrainingCVSA::on_received_data, this);
-    this->srv_camera_ready_ = this->nh_.serviceClient<std_srvs::Trigger>("cvsa/camera_ready");
+    this->srv_face_detection_ready_ = this->nh_.serviceClient<std_srvs::Trigger>("cvsa/face_detection_ready");
 }
 
 TrainingCVSA::~TrainingCVSA(void) {}
@@ -288,7 +288,7 @@ bool TrainingCVSA::on_repeat_trial(feedback_cvsa::Repeat_trial::Request &req, fe
 void TrainingCVSA::run(void) {
 
     if(this->eye_calibration_){
-        this->srv_camera_ready_.waitForExistence();
+        this->srv_face_detection_ready_.waitForExistence();
     }
     if(this->robot_control_){
         this->srv_robot_motion_.waitForExistence();
@@ -297,7 +297,7 @@ void TrainingCVSA::run(void) {
 
     while(true){
         if(this->eye_calibration_){
-            this->srv_camera_ready_.call(srv.request, srv.response);
+            this->srv_face_detection_ready_.call(srv.request, srv.response);
             if(srv.response.success == false) {
                 ROS_WARN_ONCE("[Training_CVSA] Camera is not ready");
                 continue;

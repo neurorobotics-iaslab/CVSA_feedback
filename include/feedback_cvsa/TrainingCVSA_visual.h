@@ -98,7 +98,7 @@ class TrainingCVSA_visual : public CVSA_layout_visual {
         ros::Publisher pub_;
         ros::Publisher pub_trials_keep_;
         ros::ServiceServer srv_repeat_trial_;
-        ros::ServiceClient srv_camera_ready_;
+        ros::ServiceClient srv_face_detection_ready_;
 
         rosneuro_msgs::NeuroEvent  event_msg_;
         rosneuro_msgs::NeuroOutput inputmsg_;
