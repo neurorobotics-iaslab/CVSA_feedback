@@ -69,7 +69,7 @@ bool TrainingCVSA::configure(void) {
         ROS_ERROR("[Training_CVSA] Parameter 'modality' is mandatory");
         return false;
     }
-    
+
     if(modality.compare("calibration") == 0) {
         this->modality_ = Modality::Calibration;
     } else if(modality.compare("evaluation") == 0) {
@@ -113,7 +113,7 @@ bool TrainingCVSA::configure(void) {
     }
 
     /* PARAMETER FOR THE EYE*/
-    // Getting do or not eye calibration
+    // Do or not the eye_calibration
     if(this->p_nh_.getParam("eye_calibration", this->eye_calibration_) == false) {
         ROS_ERROR("[Training_CVSA] Parameter 'eye_calibration' is mandatory");
         return false;
@@ -148,9 +148,15 @@ bool TrainingCVSA::configure(void) {
                 }
             }
         }
+    }
+    // do or not the motion eye online
+    bool eye_motion_online;
+    this->p_nh_.param("eye_motion_online", eye_motion_online, false);
+    if(eye_motion_online){
         this->srv_repeat_trial_ = this->nh_.advertiseService("cvsa/repeat_trial", &TrainingCVSA::on_repeat_trial, this);
         this->pub_trials_keep_ = this->nh_.advertise<feedback_cvsa::Trials_to_keep>("cvsa/trials_keep", 1);
     }
+
 
     // Getting duration parameters
     ros::param::param("~duration/begin",            this->duration_.begin,             5000);
@@ -288,9 +294,11 @@ bool TrainingCVSA::on_repeat_trial(feedback_cvsa::Repeat_trial::Request &req, fe
 void TrainingCVSA::run(void) {
 
     if(this->eye_calibration_){
+        ROS_INFO("[Training_CVSA] Waiting for the camera to be ready");
         this->srv_face_detection_ready_.waitForExistence();
     }
     if(this->robot_control_){
+        ROS_INFO("[Training_CVSA] Waiting for the robot motion service to be ready");
         this->srv_robot_motion_.waitForExistence();
     }
     std_srvs::Trigger srv = std_srvs::Trigger();

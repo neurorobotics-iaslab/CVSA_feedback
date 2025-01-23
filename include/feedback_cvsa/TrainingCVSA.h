@@ -148,7 +148,7 @@ class TrainingCVSA : public CVSA_layout {
         // for positive feedback
         bool positive_feedback_ = false;
 
-        // for robto control
+        // for robot control
         bool robot_control_ = false;
 
         // for audio cue
