@@ -79,6 +79,10 @@ bool TrainingCVSA::configure(void) {
         return false;
     }
 
+    // Getting fake rest class
+    this->p_nh_.param("fake_rest", this->fake_rest_, false);
+    ROS_WARN("[Training_CVSA] Fake rest is %s", this->fake_rest_ ? "enabled" : "disabled");
+
     /* PARAMETER FOR THE SOUND FEEDBACK*/
     // Getting parameters for audio feedback
     if(this->p_nh_.getParam("audio_path", this->audio_path_) == false) {
@@ -183,6 +187,11 @@ bool TrainingCVSA::configure(void) {
 
     for(int i = 0; i < this->nclasses_; i++) {
         this->trialsequence_.addclass(this->classes_.at(i), this->trials_per_class_.at(i), this->mindur_active_, this->maxdur_active_);
+    }
+
+    if(this->fake_rest_){
+        int n_fake_rest = static_cast<int>(std::accumulate(this->trials_per_class_.begin(), this->trials_per_class_.end(), 0) / this->nclasses_);
+        this->trialsequence_.addclass(Events::Fake_rest, n_fake_rest, this->mindur_active_, this->maxdur_active_);
     }
     
     ROS_INFO("[Training_CVSA] Total number of classes: %ld", this->classes_.size());
@@ -365,14 +374,18 @@ void TrainingCVSA::bci_protocol(void){
     int                    hitclass;
     int                    boomevent;
     int                    idx_class;
+    int                    fake_trialclass;
     int                    trialdirection;
     int                    targethit;
     std::vector<int>       count_results = std::vector<int>(3, 0); // count hit, miss and timeout
     ros::Rate r(this->rate_);
     std::vector<int> idxs_classes(this->nclasses_);
     std::iota(idxs_classes.begin(), idxs_classes.end(), 0);
+    std::vector<int> other_idx_classes;
+    
 
     rosneuro::feedback::LinearPilot linearpilot(1000.0f/this->rate_);
+    rosneuro::feedback::SinePilot   sinepilot(1000.0f/this->rate_, 0.25f, 0.5f);
     rosneuro::feedback::Autopilot*  autopilot;
 
     // Begin
@@ -384,18 +397,31 @@ void TrainingCVSA::bci_protocol(void){
         Trial t = this->trialsequence_.gettrial(i);
         trialclass     = t.classid;
         trialduration  = t.duration;
-        idx_class      = this->class2index(trialclass); 
-        trialdirection = this->class2direction(trialclass);
-        trialthreshold = this->direction2threshold(trialdirection);
+        
+        if(this->fake_rest_ && this->modality_ == Modality::Calibration && trialclass == Events::Fake_rest){
+            std::random_device rd; 
+            std::mt19937 gen(rd());
+            std::uniform_int_distribution<int> dist(0, this->nclasses_-1);
+            idx_class = dist(gen); 
+            fake_trialclass = this->classes_.at(idx_class);
+            trialdirection = this->class2direction(fake_trialclass);
+            trialthreshold = this->direction2threshold(trialdirection);
+            other_idx_classes = idxs_classes;
+            other_idx_classes.erase(std::remove(other_idx_classes.begin(), other_idx_classes.end(), idx_class), other_idx_classes.end());
+        }else{
+            idx_class      = this->class2index(trialclass); 
+            trialdirection = this->class2direction(trialclass);
+            trialthreshold = this->direction2threshold(trialdirection);
+        }
         targethit      = -1;
         this->trial_ok_ = 1;
-        std::vector<int> idxs_classes_not_trial = idxs_classes;
-        auto tmp_vector = std::remove(idxs_classes_not_trial.begin(), idxs_classes_not_trial.end(), idx_class);
-        idxs_classes_not_trial.erase(tmp_vector, idxs_classes_not_trial.end());
 
         if(this->modality_ == Modality::Calibration) {
-            autopilot = &linearpilot;
-            //autopilot->set(1.0f/this->nclasses_, trialthreshold, trialduration); 
+            if(trialclass == Events::Fake_rest && this->fake_rest_){
+                autopilot = &sinepilot;
+            }else{
+                autopilot = &linearpilot;
+            }
             autopilot->set(0.0f, trialthreshold, trialduration);
         }
 
@@ -424,7 +450,11 @@ void TrainingCVSA::bci_protocol(void){
         this->timer_.tic();
         int c_time;
         if(this->audio_cue_){
-            this->loadWAVFile(this->audio_path_ + "/" + std::to_string(trialclass) + ".wav");
+            if(this->fake_rest_ && this->modality_ == Modality::Calibration && trialclass == Events::Fake_rest){
+                this->loadWAVFile(this->audio_path_ + "/" + std::to_string(fake_trialclass) + ".wav");
+            }else{
+                this->loadWAVFile(this->audio_path_ + "/" + std::to_string(trialclass) + ".wav");
+            }
             this->openAudioDevice();
             this->setAudio(idx_sampleAudio, sampleAudio, bufferAudioSize, n_sampleAudio);
             while(idx_sampleAudio + n_sampleAudio <= this->buffer_audio_full_.size()){
@@ -467,11 +497,24 @@ void TrainingCVSA::bci_protocol(void){
 
         while(ros::ok() && this->user_quit_ == false && targethit == -1 && idx_sampleAudio + n_sampleAudio < this->buffer_audio_full_.size()) {
 
+            c_time = this->timer_.toc();
             if(this->modality_ == Modality::Calibration) {
                 this->fillAudioBuffer(idx_sampleAudio, n_sampleAudio, false);
                 ao_play(this->device_audio_, reinterpret_cast<char*>(this->buffer_audio_played_.data()), bufferAudioSize * sizeof(short));
-                this->current_input_[idx_class] = this->current_input_[idx_class] + autopilot->step();
-                //ROS_INFO("Probabilities: %f %f Thresholds: %f %f", this->current_input_[0], this->current_input_[1], this->thresholds_[0], this->thresholds_[1]);
+                if(trialclass == Events::Fake_rest && this->fake_rest_){
+                    float step = autopilot->step();
+                    if((step <= 0 && this->current_input_[idx_class] == 0.0f && this->current_input_[other_idx_classes[0]] == 0.0f) ||
+                       (step >= 0 && this->current_input_[other_idx_classes[0]] > 0.0f) ||
+                       (step <= 0 && this->current_input_[idx_class] == 0.0f)){
+                        this->current_input_[other_idx_classes[0]] = this->current_input_[other_idx_classes[0]] + (-1)*step; 
+                    }else{
+                        this->current_input_[idx_class] = this->current_input_[idx_class] + step;
+                    }
+                    ROS_INFO("step: %f", step);
+                    ROS_INFO("Probabilities: %f %f Thresholds: %f %f", this->current_input_[0], this->current_input_[1], this->thresholds_[0], this->thresholds_[1]);
+                }else{
+                    this->current_input_[idx_class] = this->current_input_[idx_class] + autopilot->step();
+                }
             } else if(this->modality_ == Modality::Evaluation) {
                 if(!this->positive_feedback_){
                     this->fillAudioBuffer(idx_sampleAudio, n_sampleAudio, false);
@@ -488,7 +531,6 @@ void TrainingCVSA::bci_protocol(void){
                 //ROS_INFO("Probabilities: %f %f Thresholds: %f %f", this->current_input_[0], this->current_input_[1], this->thresholds_[0], this->thresholds_[1]);
             }
             
-            c_time = this->timer_.toc();
             targethit = this->is_target_hit(this->current_input_,  
                                             c_time, trialduration);
 
@@ -698,11 +740,9 @@ int TrainingCVSA::is_target_hit(std::vector<float> input, int elapsed, int durat
         if(input.at(i) >= this->thresholds_.at(i)) { 
             target = i;
             break;
-        } else if(this ->modality_ == Modality::Evaluation){
-            if(elapsed > duration) {
-                target = CuePalette.size()-1;
-                break;
-            }
+        } else if(elapsed > duration){
+            target = CuePalette.size()-1;
+            break; 
         }
     }
     
