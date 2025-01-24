@@ -117,6 +117,11 @@ bool TrainingCVSA::configure(void) {
     }
 
     /* PARAMETER FOR THE EYE*/
+    // eye_ detection
+    if(this->p_nh_.getParam("eye_detection", this->eye_detection_) == false) {
+        ROS_ERROR("[Training_CVSA] Parameter 'eye_detection' is mandatory");
+        return false;
+    }
     // Do or not the eye_calibration
     if(this->p_nh_.getParam("eye_calibration", this->eye_calibration_) == false) {
         ROS_ERROR("[Training_CVSA] Parameter 'eye_calibration' is mandatory");
@@ -302,7 +307,7 @@ bool TrainingCVSA::on_repeat_trial(feedback_cvsa::Repeat_trial::Request &req, fe
 
 void TrainingCVSA::run(void) {
 
-    if(this->eye_calibration_){
+    if(this->eye_calibration_ || this->eye_detection_){
         ROS_INFO("[Training_CVSA] Waiting for the camera to be ready");
         this->srv_face_detection_ready_.waitForExistence();
     }
@@ -313,12 +318,13 @@ void TrainingCVSA::run(void) {
     std_srvs::Trigger srv = std_srvs::Trigger();
 
     while(true){
-        if(this->eye_calibration_){
+        if(this->eye_detection_){
             this->srv_face_detection_ready_.call(srv.request, srv.response);
             if(srv.response.success == false) {
                 ROS_WARN_ONCE("[Training_CVSA] Camera is not ready");
                 continue;
-            }else{
+            }
+            if(this->eye_calibration_){
                 ROS_INFO("[Training_CVSA] Calibration eye started");
                 this->eye_calibration();
             }
@@ -510,8 +516,7 @@ void TrainingCVSA::bci_protocol(void){
                     }else{
                         this->current_input_[idx_class] = this->current_input_[idx_class] + step;
                     }
-                    ROS_INFO("step: %f", step);
-                    ROS_INFO("Probabilities: %f %f Thresholds: %f %f", this->current_input_[0], this->current_input_[1], this->thresholds_[0], this->thresholds_[1]);
+                    //ROS_INFO("Probabilities: %f %f Thresholds: %f %f", this->current_input_[0], this->current_input_[1], this->thresholds_[0], this->thresholds_[1]);
                 }else{
                     this->current_input_[idx_class] = this->current_input_[idx_class] + autopilot->step();
                 }

@@ -130,6 +130,7 @@ class TrainingCVSA : public CVSA_layout {
         bool show_on_rest_;
         std::vector<float> thresholds_;
 		bool eye_calibration_;
+        bool eye_detection_;
         std::vector<std::vector<float>> calibration_positions_;
         std::vector<int> calibration_classes_;
         int trial_ok_;
