@@ -7,7 +7,6 @@ TrainingCVSA::TrainingCVSA(void) : CVSA_layout("trainingCVSA"), p_nh_("~") {
 
     this->pub_ = this->nh_.advertise<rosneuro_msgs::NeuroEvent>("events/bus", 1);
     this->sub_ = this->nh_.subscribe("cvsa/neuroprediction/integrated", 1, &TrainingCVSA::on_received_data, this);
-    this->srv_face_detection_ready_ = this->nh_.serviceClient<std_srvs::Trigger>("cvsa/face_detection_ready");
 }
 
 TrainingCVSA::~TrainingCVSA(void) {}
@@ -116,11 +115,24 @@ bool TrainingCVSA::configure(void) {
         this->srv_robot_motion_ = this->nh_.serviceClient<std_srvs::Trigger>("/cvsa/robot_motion");
     }
 
+    /* PARAMETER FOR THE IMU */
+    if(this->p_nh_.getParam("imu", this->imu_) == false) {
+        ROS_ERROR("[Training_CVSA] Parameter 'imu' is mandatory");
+        return false;
+    }
+    ROS_INFO("[Training_CVSA] IMU is %s", this->imu_ ? "enabled" : "disabled");
+    if(this->imu_){
+        this->srv_imu_ = this->nh_.serviceClient<std_srvs::Trigger>("/imu_cvsa/receiving_singals");
+    }
+
     /* PARAMETER FOR THE EYE*/
     // eye_ detection
     if(this->p_nh_.getParam("eye_detection", this->eye_detection_) == false) {
         ROS_ERROR("[Training_CVSA] Parameter 'eye_detection' is mandatory");
         return false;
+    }
+    if(this->eye_detection_){
+        this->srv_face_detection_ready_ = this->nh_.serviceClient<std_srvs::Trigger>("cvsa/face_detection_ready");
     }
     // Do or not the eye_calibration
     if(this->p_nh_.getParam("eye_calibration", this->eye_calibration_) == false) {
@@ -159,9 +171,8 @@ bool TrainingCVSA::configure(void) {
         }
     }
     // do or not the motion eye online
-    bool eye_motion_online;
-    this->p_nh_.param("eye_motion_online", eye_motion_online, false);
-    if(eye_motion_online){
+    this->p_nh_.param("eye_motion_online", this->eye_motion_online_, false);
+    if(this->eye_motion_online_){
         this->srv_repeat_trial_ = this->nh_.advertiseService("cvsa/repeat_trial", &TrainingCVSA::on_repeat_trial, this);
         this->pub_trials_keep_ = this->nh_.advertise<feedback_cvsa::Trials_to_keep>("cvsa/trials_keep", 1);
     }
@@ -315,12 +326,24 @@ void TrainingCVSA::run(void) {
         ROS_INFO("[Training_CVSA] Waiting for the robot motion service to be ready");
         this->srv_robot_motion_.waitForExistence();
     }
-    std_srvs::Trigger srv = std_srvs::Trigger();
+    if(this->imu_){
+        ROS_INFO("[Training_CVSA] Waiting for the IMU service to be ready");
+        this->srv_imu_.waitForExistence();
+    }
+    std_srvs::Trigger srv_face_detection = std_srvs::Trigger();
+    std_srvs::Trigger srv_imu = std_srvs::Trigger();
 
     while(true){
+        if(this->imu_){
+            this->srv_imu_.call(srv_imu.request, srv_imu.response);
+            if(srv_imu.response.success == false) {
+                ROS_WARN_ONCE("[Training_CVSA] IMU is not ready");
+                continue;
+            }
+        }
         if(this->eye_detection_){
-            this->srv_face_detection_ready_.call(srv.request, srv.response);
-            if(srv.response.success == false) {
+            this->srv_face_detection_ready_.call(srv_face_detection.request, srv_face_detection.response);
+            if(srv_face_detection.response.success == false) {
                 ROS_WARN_ONCE("[Training_CVSA] Camera is not ready");
                 continue;
             }
@@ -628,9 +651,11 @@ void TrainingCVSA::bci_protocol(void){
     ROS_INFO("[Training_CVSA] Protocol ended");
 
     // Publish the trials keep
-    feedback_cvsa::Trials_to_keep msg;
-    msg.trials_to_keep = this->trials_keep_;
-    this->pub_trials_keep_.publish(msg);
+    if(this->eye_motion_online_){
+        feedback_cvsa::Trials_to_keep msg;
+        msg.trials_to_keep = this->trials_keep_;
+        this->pub_trials_keep_.publish(msg);
+    }
 }
 
 std::vector<float> TrainingCVSA::normalize4audio(std::vector<float>& input) {

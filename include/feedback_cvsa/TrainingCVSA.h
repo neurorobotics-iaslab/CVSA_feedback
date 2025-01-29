@@ -107,6 +107,7 @@ class TrainingCVSA : public CVSA_layout {
         ros::ServiceServer srv_repeat_trial_;
         ros::ServiceClient srv_face_detection_ready_;
         ros::ServiceClient srv_robot_motion_;
+        ros::ServiceClient srv_imu_;
 
         rosneuro_msgs::NeuroEvent  event_msg_;
         rosneuro_msgs::NeuroOutput inputmsg_;
@@ -135,6 +136,7 @@ class TrainingCVSA : public CVSA_layout {
         std::vector<int> calibration_classes_;
         int trial_ok_;
         std::vector<int> trials_keep_;
+        bool eye_motion_online_;
 
         dyncfg_cvsa recfg_srv_;
         dyncfg_cvsa::CallbackType recfg_callback_type_;
@@ -159,6 +161,9 @@ class TrainingCVSA : public CVSA_layout {
 
         // for fake rest
         bool fake_rest_ = false;
+
+        // for imu
+        bool imu_ = false;
 };
 
 
