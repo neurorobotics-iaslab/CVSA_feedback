@@ -475,7 +475,13 @@ void TrainingCVSA::bci_protocol(void){
         /* CUE */
         int idx_sampleAudio;
         size_t sampleAudio, bufferAudioSize, n_sampleAudio;
-        this->setevent(trialclass);
+        if(this->fake_rest_ && this->modality_ == Modality::Calibration && trialclass == Events::Fake_rest){
+            this->setevent(trialclass);
+            this->sleep(this->duration_.iti);
+            this->setevent(fake_trialclass);
+        }else{
+            this->setevent(trialclass);
+        }
         this->timer_.tic();
         int c_time;
         if(this->audio_cue_){
@@ -501,7 +507,12 @@ void TrainingCVSA::bci_protocol(void){
             this->sleep(this->duration_.cue);
             this->hide_cue();
         }
+        if(this->fake_rest_ && this->modality_ == Modality::Calibration && trialclass == Events::Fake_rest){
+            this->sleep(this->duration_.iti);
+            this->setevent(fake_trialclass + Events::Off);
+        }
         this->setevent(trialclass + Events::Off);
+        
         
         if(ros::ok() == false || this->user_quit_ == true) break;
 
